@@ -3,144 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terra Vol | Renewable Energy Supply Chain & Financial Control</title>
+    <title>Terra Vol | BESS Financial & Logistical Analysis</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #0F172A;
-            --accent: #10B981;
-            --text-main: #334155;
-            --text-light: #64748B;
-            --bg-light: #F8FAFC;
-            --white: #FFFFFF;
+            --primary: #008080;
+            --primary-dark: #005959;
+            --accent: #20b2aa;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --gray: #64748b;
+            --border: #e2e8f0;
         }
+
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-        body {
             font-family: 'Inter', sans-serif;
-            color: var(--text-main);
-            background-color: var(--white);
+        }
+
+        body {
+            background-color: var(--light);
+            color: var(--dark);
             line-height: 1.6;
         }
+
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 8%;
-            border-bottom: 1px solid #E2E8F0;
+            padding: 20px 5%;
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        .logo {
-            font-weight: 700;
-            font-size: 1.5rem;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 10px;
+
+        .logo img {
+            height: 48px;
+            width: auto;
+            display: block;
         }
-        .logo span {
-            color: var(--accent);
-        }
-        .hero {
-            padding: 100px 8% 80px 8%;
-            background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
-            text-align: center;
-        }
-        .hero h1 {
-            font-size: 3rem;
-            color: var(--primary);
-            font-weight: 700;
-            max-width: 900px;
-            margin: 0 auto 20px auto;
-            letter-spacing: -0.02em;
-        }
-        .hero p {
-            font-size: 1.25rem;
-            color: var(--text-light);
-            max-width: 700px;
-            margin: 0 auto 40px auto;
-        }
+
         .cta-btn {
-            display: inline-block;
-            background-color: var(--accent);
-            color: var(--white);
-            padding: 14px 32px;
-            font-size: 1rem;
-            font-weight: 600;
+            background-color: var(--primary);
+            color: white;
+            padding: 10px 24px;
             border-radius: 6px;
             text-decoration: none;
-            transition: background 0.2s ease;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.1s;
         }
+
         .cta-btn:hover {
-            background-color: #059669;
+            background-color: var(--primary-dark);
+            transform: translateY(-1px);
         }
+
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 100px 20px 80px 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            color: var(--dark);
+            margin-bottom: 20px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--gray);
+            margin-bottom: 40px;
+            max-width: 700px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 14px rgba(0, 128, 128, 0.25);
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            box-shadow: 0 6px 20px rgba(0, 128, 128, 0.35);
+        }
+
         .features {
-            padding: 80px 8%;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 40px;
-            background-color: var(--white);
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            padding: 60px 5%;
+            max-width: 1200px;
+            margin: 0 auto;
         }
+
         .feature-card {
-            background: var(--bg-light);
-            padding: 40px;
+            background: white;
+            padding: 30px;
             border-radius: 12px;
-            border: 1px solid #E2E8F0;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
+
         .feature-card h3 {
             font-size: 1.25rem;
-            color: var(--primary);
-            margin-bottom: 15px;
+            color: var(--dark);
+            margin-bottom: 12px;
         }
+
         .feature-card p {
-            color: var(--text-light);
+            color: var(--gray);
             font-size: 0.95rem;
         }
+
         footer {
             text-align: center;
-            padding: 40px 8%;
-            background-color: var(--primary);
-            color: var(--white);
+            padding: 40px 20px;
+            color: var(--gray);
+            border-top: 1px solid var(--border);
+            background: #ffffff;
+            margin-top: 80px;
             font-size: 0.9rem;
         }
+
         @media (max-width: 768px) {
-            .hero h1 { font-size: 2.2rem; }
+            .hero h1 {
+                font-size: 2.25rem;
+            }
+            .hero p {
+                font-size: 1.1rem;
+            }
         }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="logo">⚡ Terra <span>Vol</span></div>
-        <a href="https://terra-vol-global.streamlit.app" class="cta-btn" style="padding: 10px 20px; font-size: 0.9rem;">Client Login</a>
+        <div class="logo">
+            <img src="logo.png" alt="Terra Vol Logo">
+        </div>
+        <a href="https://terra-vol-global.streamlit.app" class="cta-btn">Client Login</a>
     </header>
 
-    <section class="hero">
-        <h1>Financial & Logistical Control for Utility-Scale BESS Projects</h1>
-        <p>Empowering European energy entrepreneurs and CFOs with end-to-end supply chain visibility, precise landed cost modeling, and total regulatory readiness.</p>
-        <a href="https://terra-vol-global.streamlit.app" class="cta-btn">Explore Live Demo</a>
-    </section>
+    <main>
+        <section class="hero">
+            <h1>Advanced BESS Project Financial & Logistical Analysis</h1>
+            <p>Empowering European stakeholders with high-precision modeling, utility-scale renewable energy logistics, and comprehensive financial assessments.</p>
+            <div class="hero-buttons">
+                <a href="https://terra-vol-global.streamlit.app" class="btn-primary">Launch Application</a>
+            </div>
+        </section>
 
-    <section class="features">
-        <div class="feature-card">
-            <h3>Complete Landed Cost Transparency</h3>
-            <p>Seamlessly calculate equipment costs from EXW in China through ocean freight, BAF, port handling, customs, and inland drayage to the European site.</p>
-        </div>
-        <div class="feature-card">
-            <h3>Commercial Incoterm Flexibility</h3>
-            <p>Instantly compare financial exposure across varying commercial scopes (EXW, FOB, CIF, DAP, DDP) to optimize your project's cash flow.</p>
-        </div>
-        <div class="feature-card">
-            <h3>Risk Mitigation & EU Compliance</h3>
-            <p>Proactively manage demurrage bottlenecks, heavy-lift site constraints, and mandatory EU frameworks including EPR recycling and Battery Passports.</p>
-        </div>
-    </section>
+        <section class="features">
+            <div class="feature-card">
+                <h3>Financial Modeling</h3>
+                <p>Robust valuation and cash flow projections tailored specifically for complex Battery Energy Storage Systems (BESS) deployments.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Logistical Optimization</h3>
+                <p>Advanced routing, heavy-haul engineering parameters, and compliance frameworks for utility-scale energy components across Europe.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Cross-Border Compliance</h3>
+                <p>Streamlined regulatory guidelines and site-delivery planning designed for international energy contractors and developers.</p>
+            </div>
+        </section>
+    </main>
 
     <footer>
-        <p>&copy; 2026 Terra Vol Global. All rights reserved.</p>
+        <p>&copy; 2026 Terra Vol. All rights reserved.</p>
     </footer>
 
 </body>
