@@ -39,18 +39,21 @@ def calculate_project_costs(
     )
     trended_exw = base_exw_total * trend_multiplier
 
-    # 2. China Inland Drayage & Origin THC (Estimated baseline)
-    china_inland_drayage = total_containers_project * 350.0 * trend_multiplier
-    china_origin_thc = total_containers_project * 250.0 * trend_multiplier
+    # 2. Origin Port Charges based on Hyperstrong quotation (23,828 CNY lumpsum baseline)
+    china_origin_charges_cny = 23828.0
+    china_origin_charges_usd = (china_origin_charges_cny / 7.2) * trend_multiplier
+    
+    china_inland_drayage = china_origin_charges_usd * 0.6
+    china_origin_thc = china_origin_charges_usd * 0.4
 
-    # 3. Ocean Freight
+    # 3. Ocean Freight (Quotation baseline: $15,000 per container from Yantian)
     total_base_ocean_freight = (
-        (bess_count * unit_freight_bess) +
-        (oog_count * unit_freight_oog) +
-        (mvs_count * unit_freight_mvs) +
-        (transformer_count * unit_freight_trans) +
-        (access_count * unit_freight_access) +
-        (solar_count * unit_freight_solar)
+        (bess_count * 15000.0) +
+        (oog_count * 15000.0) +
+        (mvs_count * 15000.0) +
+        (transformer_count * 15000.0) +
+        (access_count * 15000.0) +
+        (solar_count * 15000.0)
     ) * trend_multiplier
 
     # 4. BAF (Bunker Adjustment Factor)
@@ -63,7 +66,7 @@ def calculate_project_costs(
         (solar_count * baf_solar)
     ) * trend_multiplier
 
-    # 5. Destination THC
+    # 5. Destination THC & Local Charges
     destination_thc_total = (
         (bess_count * dthc_bess) +
         (oog_count * dthc_oog) +
@@ -77,7 +80,7 @@ def calculate_project_costs(
     cif_value_base = trended_exw + china_inland_drayage + china_origin_thc + total_base_ocean_freight + total_baf_ocean
     insurance_total_usd = cif_value_base * (insurance_pct / 100.0)
 
-    # Customs Duty (Solar PV is exempt / 0%, BESS/MVS use general rate)
+    # Customs Duty
     bess_mvs_exw_val = (bess_count * bess_exw) + (oog_count * oog_exw) + (mvs_count * mvs_exw) + (transformer_count * transformer_exw) + (access_count * access_exw)
     customs_duty_usd = (bess_mvs_exw_val * trend_multiplier) * (customs_duty_pct / 100.0)
 
