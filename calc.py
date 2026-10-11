@@ -35,6 +35,9 @@ def convert_currency(amount, from_currency, to_currency, usd_to_eur_rate):
     return amount
 
 def format_currency(amount, currency):
+    """
+    Formats monetary amounts cleanly with appropriate symbols for EUR and USD.
+    """
     if currency == "EUR":
         return f"€{amount:,.0f}"
     elif currency == "USD":
@@ -81,9 +84,6 @@ def calculate_project_costs(
     decom_discount_rate_pct: float = 0.0,
     decom_years: float = 0.0,
 ):
-    counts = dict(zip(CATEGORIES, (bess_count, oog_count, mvs_count,
-                                map_transformer := transformer_count, access_count, solar_count))) # adjusted mapping
-    # Correcting mapping explicitly:
     counts = dict(zip(CATEGORIES, (bess_count, oog_count, mvs_count, transformer_count, access_count, solar_count)))
     exw_unit = dict(zip(CATEGORIES, (bess_exw, oog_exw, mvs_exw,
                                     transformer_exw, access_exw, solar_exw)))
