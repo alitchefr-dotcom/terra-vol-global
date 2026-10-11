@@ -151,4 +151,73 @@ with tab2:
         origin_port = st.selectbox("Origin Port (China):", ["Shanghai, China", "Ningbo, China", "Shenzhen, China"])
     with col_sc2:
         dest_port = st.selectbox(f"Selected Port of Destination (POD) for {destination_country}:", options=available_ports)
-        incoterm_code = st.selectbox("In
+        incoterm_code = st.selectbox("Incoterm:", options=["EXW", "FOB", "CFR", "CIF", "DAP", "DDP"], index=3)
+
+    st.markdown("---")
+    col_fr1, col_fr2 = st.columns(2)
+    with col_fr1:
+        unit_freight = st.number_input("Base Ocean Freight per Container (USD):", min_value=1000, value=15000, step=500)
+        baf_val = st.number_input("BAF per Container (USD):", min_value=0, value=1500, step=100)
+        dthc_val = st.number_input("Destination THC per Container (USD):", min_value=100, value=800, step=50)
+    with col_fr2:
+        insurance_pct = st.number_input("Marine Insurance Rate (% of CFR):", min_value=0.0, value=0.15, step=0.05)
+        customs_duty_pct = st.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=2.7, step=0.1)
+
+    st.markdown("#### European Route & Corridor Analysis")
+    st.dataframe(corridors_df, use_container_width=True, hide_index=True)
+
+with tab3:
+    st.subheader("Storage, Demurrage & Drayage Optimization")
+    
+    col_st1, col_st2 = st.columns(2)
+    with col_st1:
+        free_days = st.number_input("Port Free Days (BESS often 0):", min_value=0, value=0, step=1)
+        actual_port_days = st.number_input("Actual Port Days before clearance:", min_value=1, value=5, step=1)
+        demurrage_daily_rate = st.number_input("Demurrage / Storage Daily Rate per Container (USD):", min_value=50, value=450, step=50)
+    with col_st2:
+        drayage_unit = st.number_input("Inland Drayage (Port to Site) per Container (USD):", min_value=500, value=4500, step=500)
+        use_external_storage = st.checkbox("Use External Safe Storage Yard", value=False)
+        ext_storage_days = st.number_input("External Storage Days:", min_value=0, value=10, step=1) if use_external_storage else 0
+        ext_storage_daily_rate = 250.0
+
+    include_delay_scenario = st.checkbox("Include Custom Delay Contingency Scenario (+7 Days)", value=True)
+
+with tab4:
+    st.subheader("Regulatory, Taxes & Complete Landed Cost Summary")
+    
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        applied_vat = st.number_input("Import VAT Rate (%):", min_value=0.0, value=19.0, step=0.5)
+        vat_recovery_pct = st.number_input("VAT Recovery Rate (%):", min_value=0.0, value=100.0, step=5.0)
+        vat_paid_by_supplier = st.checkbox("Import VAT Paid Directly by Supplier", value=False)
+    with col_t2:
+        contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
+        epr_recycling_total_usd = st.number_input("EPR & Recycling Compliance Total (USD):", min_value=0, value=15000, step=1000)
+        battery_passport_total_usd = st.number_input("EU Battery Passport Total (USD):", min_value=0, value=10000, step=1000)
+
+    # --- RUN CALCULATION ENGINE ---
+    results = calculate_project_costs(
+        bess_count=bess_count, bess_exw=bess_exw,
+        oog_count=oog_count, oog_exw=oog_exw,
+        mvs_count=mvs_count, mvs_exw=mvs_exw,
+        transformer_count=transformer_count, transformer_exw=transformer_exw,
+        access_count=access_count, access_exw=access_exw,
+        solar_count=solar_count, solar_exw=solar_exw,
+        unit_freight_bess=unit_freight, unit_freight_oog=unit_freight, unit_freight_mvs=unit_freight,
+        unit_freight_trans=unit_freight, unit_freight_access=unit_freight, unit_freight_solar=unit_freight,
+        baf_bess=baf_val, baf_oog=baf_val, baf_mvs=baf_val, baf_trans=baf_val, baf_access=baf_val, baf_solar=baf_val,
+        dthc_bess=dthc_val, dthc_oog=dthc_val, dthc_mvs=dthc_val, dthc_trans=dthc_val, dthc_access=dthc_val, dthc_solar=dthc_val,
+        drayage_bess=drayage_unit, drayage_oog=drayage_unit, drayage_mvs=drayage_unit,
+        drayage_trans=drayage_unit, drayage_access=drayage_unit, drayage_solar=drayage_unit,
+        trend_multiplier=trend_multiplier, insurance_pct=insurance_pct,
+        customs_duty_pct=customs_duty_pct, applied_vat=applied_vat, vat_recovery_pct=vat_recovery_pct,
+        vat_paid_by_supplier=vat_paid_by_supplier, incoterm_code=incoterm_code,
+        dest_country_code=dest_code,
+        local_regulatory_permits=5000.0, mot_total_approval_cost=3000.0,
+        include_regulatory=True, include_mot_approval=True,
+        site_crane_unloading=12000.0, include_site_crane=True,
+        epr_recycling_total_usd=epr_recycling_total_usd, battery_passport_total_usd=battery_passport_total_usd,
+        requires_heavy_lift=True, heavy_lift_survey_cost=4500.0,
+        actual_port_days=actual_port_days, free_days=free_days, demurrage_daily_rate=demurrage_daily_rate,
+        use_external_storage=use_external_storage, ext_storage_days=ext_storage_days,
+        ext_storage_daily_rate=ext_storage_daily
