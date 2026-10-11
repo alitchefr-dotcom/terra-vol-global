@@ -180,8 +180,3 @@ with tab3:
         free_days = st.number_input("Port Free Days (BESS often 0):", min_value=0, value=0, step=1)
         actual_port_days = st.number_input("Actual Port Days before clearance:", min_value=1, value=5, step=1)
         demurrage_daily_rate = st.number_input("Demurrage / Storage Daily Rate per Container (USD):", min_value=50, value=450, step=50)
-    with col_st2:
-        drayage_unit = st.number_input("Inland Drayage (Port to Site) per Container (USD):", min_value=500, value=4500, step=500)
-        use_external_storage = st.checkbox("Use External Safe Storage Yard", value=False)
-        ext_storage_days = st.number_input("External Storage Days:", min_value=0, value=10, step=1) if use_external_storage else 0
-        ext_storage_daily_rate =
