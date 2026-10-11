@@ -144,7 +144,7 @@ with tab1:
     with col_exw2:
         oog_exw = st.number_input("עלות EXW ליחידת OOG ($):", min_value=10000, value=400000, step=5000)
         access_exw = st.number_input("עלות EXW ליחידת ציוד נלווה ($):", min_value=1000, value=50000, step=1000)
-        solar_exw = st.number_input("עלות EXW ליחידה סולארית ($):", min_value=1000, value=300000, step=1000)
+        solar_exw = st.number_input("עלות EXW ליחידה סולארית ($):", min_value=1000, value=50000, step=1000)
 
     bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=1.0, value=4.0, step=0.5)
 
@@ -231,25 +231,4 @@ with tab4:
     )
 
     st.markdown("---")
-    st.subheader("📊 Financial Summary & Landed Cost Breakdown")
-
-    landed_usd = results["total_landed_cost_ex_vat"]
-    landed_display = convert_currency(landed_usd, "USD", curr_code, usd_to_eur)
-    
-    exw_display = convert_currency(results["trended_exw"], "USD", curr_code, usd_to_eur)
-    supplier_display = convert_currency(results["supplier_scope_total"], "USD", curr_code, usd_to_eur)
-
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Total Landed Cost (Ex. VAT)", format_currency(landed_display, curr_code))
-    m2.metric("Total Equipment EXW", format_currency(exw_display, curr_code))
-    m3.metric(f"Supplier Scope ({incoterm_code})", format_currency(supplier_display, curr_code))
-
-    st.markdown("#### Detailed Cost Breakdown (USD)")
-    breakdown_df = pd.DataFrame([
-        {"Cost Element": k.replace("_", " ").title(), "Amount (USD)": v}
-        for k, v in results["cost_lines"].items() if v > 0
-    ])
-    st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
-
-st.markdown("---")
-st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")
+    st.subheader("📊
