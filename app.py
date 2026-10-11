@@ -240,4 +240,16 @@ with tab4:
     supplier_display = convert_currency(results["supplier_scope_total"], "USD", curr_code, usd_to_eur)
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total Landed Cost (Ex. VAT)", format_currency(landed_display
+    m1.metric("Total Landed Cost (Ex. VAT)", format_currency(landed_display, curr_code))
+    m2.metric("Total Equipment EXW", format_currency(exw_display, curr_code))
+    m3.metric(f"Supplier Scope ({incoterm_code})", format_currency(supplier_display, curr_code))
+
+    st.markdown("#### Detailed Cost Breakdown (USD)")
+    breakdown_df = pd.DataFrame([
+        {"Cost Element": k.replace("_", " ").title(), "Amount (USD)": v}
+        for k, v in results["cost_lines"].items() if v > 0
+    ])
+    st.dataframe(breakdown_df, use_container_width=True, hide_index=True)
+
+st.markdown("---")
+st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")
