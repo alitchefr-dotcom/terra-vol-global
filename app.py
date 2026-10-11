@@ -10,14 +10,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Session State for live exchange rate refresh
 if "usd_eur" not in st.session_state:
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
 
 def refresh_rate():
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
 
-# --- SIDEBAR WITH LOGO ---
 logo_path = "logo.png"
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=180)
@@ -64,7 +62,6 @@ destination_country = st.sidebar.selectbox(
 )
 dest_code = destination_country[:2].upper()
 
-# Smart Port & Corridor Intelligence mapped to active BESS markets
 country_logistics_data = {
     "Italy": {
         "ports": ["Koper, Slovenia (Optimal Gateway)", "Trieste, Italy", "Venice, Italy", "Genoa, Italy"],
@@ -103,7 +100,6 @@ current_market = country_logistics_data.get(destination_country, country_logisti
 available_ports = current_market["ports"]
 corridors_df = pd.DataFrame(current_market["corridors"])
 
-# --- MAIN PAGE HEADER WITH PROPORTIONAL BODY LOGO ---
 col_title, col_logo = st.columns([4, 1])
 with col_title:
     st.title("Terra Vol")
@@ -201,7 +197,6 @@ with tab4:
         epr_recycling_total_usd = st.number_input("EPR & Recycling Compliance Total (USD):", min_value=0, value=15000, step=1000)
         battery_passport_total_usd = st.number_input("EU Battery Passport Total (USD):", min_value=0, value=10000, step=1000)
 
-    # --- RUN CALCULATION ENGINE ---
     results = calculate_project_costs(
         bess_count=bess_count, bess_exw=bess_exw,
         oog_count=oog_count, oog_exw=oog_exw,
@@ -227,4 +222,13 @@ with tab4:
         actual_port_days=actual_port_days, free_days=free_days, demurrage_daily_rate=demurrage_daily_rate,
         use_external_storage=use_external_storage, ext_storage_days=ext_storage_days,
         ext_storage_daily_rate=ext_storage_daily_rate, include_delay_scenario=include_delay_scenario,
-        bess_capacity_mwh=bess_capacity_mwh, decom_cost_per_kwh
+        bess_capacity_mwh=bess_capacity_mwh, decom_cost_per_kwh=15.0
+    )
+
+    st.markdown("---")
+    st.subheader("Financial Summary & Landed Cost Breakdown")
+
+    landed_usd = results["total_landed_cost_ex_vat"]
+    landed_display = convert_currency(landed_usd, "USD", curr_code, usd_to_eur)
+    
+    exw_display = convert_currency(results["trended_exw"],
