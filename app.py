@@ -146,6 +146,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 ])
 
 with tab1:
+    with tab1:
     st.subheader("Equipment Mix & Quantities Configuration")
     st.info(f"All calculations tailored for active BESS deployment in **{destination_country}** (Display Currency: **{curr_code}**).")
     
@@ -157,6 +158,7 @@ with tab1:
     with col2:
         oog_count = st.number_input("OOG / Special Containers:", min_value=0, value=0, step=1)
         access_count = st.number_input("Accessory Containers:", min_value=0, value=2, step=1)
+        # Solar PV starts at 0 by default, with 0 default cost so it doesn't leak numbers when unused
         solar_count = st.number_input("Solar PV / Inverter Containers:", min_value=0, value=0, step=1)
 
     st.markdown("---")
@@ -171,27 +173,30 @@ with tab1:
 
     st.markdown("---")
     st.markdown(f"#### Equipment EXW Cost ({curr_code})")
-    cur_mult = usd_to_eur if is_eur_display else 1.0
     
+    # Clean default values without distorted automatic currency multiplication fractions
+    base_val_mult = 1.0 if is_eur_display else (1.0 / usd_to_eur if usd_to_eur > 0 else 1.0)
+
     col_exw1, col_exw2 = st.columns(2)
     with col_exw1:
-        bess_exw_input = st.number_input(f"EXW Cost per BESS Container ({curr_code}):", min_value=0, value=int(300000 * cur_mult), step=5000)
-        mvs_exw_input = st.number_input(f"EXW Cost per MVS Unit ({curr_code}):", min_value=0, value=int(120000 * cur_mult), step=5000)
-        transformer_exw_input = st.number_input(f"EXW Cost per Transformer ({curr_code}):", min_value=0, value=int(80000 * cur_mult), step=5000)
+        bess_exw_input = st.number_input(f"EXW Cost per BESS Container ({curr_code}):", min_value=0, value=300000, step=5000)
+        mvs_exw_input = st.number_input(f"EXW Cost per MVS Unit ({curr_code}):", min_value=0, value=120000, step=5000)
+        transformer_exw_input = st.number_input(f"EXW Cost per Transformer ({curr_code}):", min_value=0, value=80000, step=5000)
     with col_exw2:
-        oog_exw_input = st.number_input(f"EXW Cost per OOG Unit ({curr_code}):", min_value=0, value=int(150000 * cur_mult), step=5000)
-        access_exw_input = st.number_input(f"EXW Cost per Accessory Unit ({curr_code}):", min_value=0, value=int(30000 * cur_mult), step=1000)
-        solar_exw_input = st.number_input(f"EXW Cost per Solar Unit ({curr_code}):", min_value=0, value=int(50000 * cur_mult), step=1000)
+        oog_exw_input = st.number_input(f"EXW Cost per OOG Unit ({curr_code}):", min_value=0, value=150000, step=5000)
+        access_exw_input = st.number_input(f"EXW Cost per Accessory Unit ({curr_code}):", min_value=0, value=30000, step=1000)
+        solar_exw_input = st.number_input(f"EXW Cost per Solar Unit ({curr_code}):", min_value=0, value=50000, step=1000)
 
-    bess_exw = bess_exw_input / usd_to_eur if is_eur_display else bess_exw_input
-    oog_exw = oog_exw_input / usd_to_eur if is_eur_display else oog_exw_input
-    mvs_exw = mvs_exw_input / usd_to_eur if is_eur_display else mvs_exw_input
-    transformer_exw = transformer_exw_input / usd_to_eur if is_eur_display else transformer_exw_input
-    access_exw = access_exw_input / usd_to_eur if is_eur_display else access_exw_input
-    solar_exw = solar_exw_input / usd_to_eur if is_eur_display else solar_exw_input
+    # Convert inputs to internal USD for calculations
+    to_usd_factor = (1.0 / usd_to_eur) if is_eur_display and usd_to_eur > 0 else 1.0
+    bess_exw = bess_exw_input * to_usd_factor
+    oog_exw = oog_exw_input * to_usd_factor
+    mvs_exw = mvs_exw_input * to_usd_factor
+    transformer_exw = transformer_exw_input * to_usd_factor
+    access_exw = access_exw_input * to_usd_factor
+    solar_exw = solar_exw_input * to_usd_factor if solar_count > 0 else 0.0
 
     bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=0.5, value=4.0, step=0.5)
-
 with tab2:
     st.subheader("Ocean Freight, BAF & Destination THC")
     
