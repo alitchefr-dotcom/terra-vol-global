@@ -1,6 +1,5 @@
 import requests
 
-# ===== Decommissioning (inline, no separate file needed) =====
 DECOM_SCENARIOS_USD_PER_KWH = {"low": 59.0, "base": 75.0, "high": 90.0}
 
 def calculate_decommissioning(
@@ -13,7 +12,7 @@ def calculate_decommissioning(
     discount_rate=0.0,
     residual_value_per_kwh=0.0,
 ):
-    if not apply_decommissioning:
+    if not apply_decommissioning or bess_count <= 0:
         return {"units": 0, "nominal_usd": 0.0, "pv_usd": 0.0}
 
     units = bess_count + (oog_count if include_oog_in_decom else 0)
@@ -103,6 +102,7 @@ def calculate_project_costs(
 ):
     total_containers_project = max(1, bess_count + oog_count + mvs_count + transformer_count + access_count + solar_count)
 
+    # STRICT MULTIPLICATION BY ACTUAL QUANTITY (0 units = 0 cost)
     total_exw_project = (
         (bess_count * bess_exw) + (oog_count * oog_exw) + 
         (mvs_count * mvs_exw) + (transformer_count * transformer_exw) + 
@@ -145,7 +145,6 @@ def calculate_project_costs(
     cif_valuation_base = trended_exw + china_inland_drayage + china_origin_thc + total_ocean_freight
     insurance_total_usd = cif_valuation_base * (insurance_pct / 100.0)
 
-    # Separate Duty calculation for non-solar equipment vs MVS/Transformers
     total_solar_exw = solar_count * solar_exw * trend_multiplier
     total_mvs_trans_exw = ((mvs_count * mvs_exw) + (transformer_count * transformer_exw)) * trend_multiplier
     general_non_solar_exw = trended_exw - total_solar_exw - total_mvs_trans_exw
