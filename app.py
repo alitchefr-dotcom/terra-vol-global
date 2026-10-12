@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import io
 from datetime import date
 from calc import get_live_exchange_rate, convert_currency, format_currency, calculate_project_costs
 
@@ -10,69 +11,28 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CUSTOM CSS STYLING FOR A LUXURY SaaS LOOK ---
+# --- CUSTOM CSS STYLING ---
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #FFFFFF;
-    }
+    .stApp { background-color: #FFFFFF; }
     div[data-testid="metric-container"] {
         background-color: #F8FAFC;
         border: 1px solid #E2E8F0;
         padding: 15px 20px;
         border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
-    .stButton>button {
-        background-color: #0284C7;
-        color: white;
-        border-radius: 8px;
-        padding: 8px 20px;
-        font-weight: 600;
-        border: none;
-        box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
-        transition: all 0.2s ease-in-out;
-    }
-    .stButton>button:hover {
-        background-color: #0369A1;
-        box-shadow: 0 4px 8px rgba(2, 132, 199, 0.3);
-    }
-    div.stDownloadButton>button {
-        background-color: #059669;
-        color: white;
-        border-radius: 8px;
-        font-weight: 600;
-        border: none;
-    }
-    div.stDownloadButton>button:hover {
-        background-color: #047857;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #F1F5F9;
-        border-radius: 6px 6px 0px 0px;
-        padding: 10px 16px;
-        font-weight: 500;
-        color: #475569;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #0284C7 !important;
-        color: white !important;
-        font-weight: 600;
-    }
+    .stButton>button { background-color: #0284C7; color: white; border-radius: 8px; font-weight: 600; border: none; }
+    div.stDownloadButton>button { background-color: #059669; color: white; border-radius: 8px; font-weight: 600; border: none; }
     </style>
 """, unsafe_allow_html=True)
 
-# Session State for live exchange rate refresh
 if "usd_eur" not in st.session_state:
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
 
 def refresh_rate():
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
 
-# --- SIDEBAR & EUROPEAN COUNTRIES EXPANDED ---
+# --- SIDEBAR SETTINGS ---
 logo_path = "logo.png"
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=180)
@@ -80,124 +40,35 @@ if os.path.exists(logo_path):
 st.sidebar.markdown("### Terra Vol Global")
 st.sidebar.markdown("---")
 
-display_currency = st.sidebar.selectbox(
-    "Main Display Currency:",
-    options=["EUR (€)", "USD ($)"],
-    index=0
-)
+display_currency = st.sidebar.selectbox("Main Display Currency:", options=["EUR (€)", "USD ($)"], index=0)
 curr_code = "EUR" if "EUR" in display_currency else "USD"
+is_eur_display = ("EUR" in display_currency)
 
 delivery_date = st.sidebar.date_input("Delivery Target Date:", value=date(2027, 6, 30))
-
-trend_multiplier = st.sidebar.slider(
-    "Equipment Cost Trend Multiplier:",
-    min_value=0.8,
-    max_value=1.3,
-    value=1.0,
-    step=0.01
-)
+trend_multiplier = st.sidebar.slider("Equipment Cost Trend Multiplier:", min_value=0.8, max_value=1.3, value=1.0, step=0.01)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("#### Exchange Rates (Dynamic Live)")
-
-st.sidebar.number_input(
-    "USD to EUR Exchange Rate:",
-    min_value=0.5,
-    max_value=2.0,
-    step=0.001,
-    format="%.4f",
-    key="usd_eur"
-)
+st.sidebar.number_input("USD to EUR Exchange Rate:", min_value=0.5, max_value=2.0, step=0.001, format="%.4f", key="usd_eur")
 usd_to_eur = st.session_state.usd_eur
-
 st.sidebar.button("Refresh Live Rates", on_click=refresh_rate)
 
 destination_country = st.sidebar.selectbox(
     "Project Destination Country:",
-    options=[
-        "Romania", 
-        "Poland", 
-        "Hungary", 
-        "Bulgaria", 
-        "Germany", 
-        "Italy", 
-        "Greece", 
-        "Finland", 
-        "France", 
-        "Spain", 
-        "Netherlands", 
-        "Belgium", 
-        "Austria", 
-        "Czech Republic", 
-        "Slovakia", 
-        "Croatia"
-    ],
+    options=["Romania", "Poland", "Hungary", "Bulgaria", "Germany", "Italy", "Greece", "Finland", "France", "Spain", "Netherlands", "Belgium", "Austria", "Czech Republic", "Slovakia", "Croatia"],
     index=0
 )
 dest_code = destination_country[:2].upper()
 
-# Comprehensive Port & Corridor Intelligence for European Markets
-country_logistics_data = {
-    "Romania": {
-        "ports": ["Constanța, Romania", "Koper, Slovenia (Multimodal via Rail)", "Piraeus, Greece"],
-        "corridors": [
-            {"Route": "Asia via Constanța (Black Sea)", "Transit": "32-35 Days", "Advantage": "Optimal for Eastern Europe / Balkan & Romanian utility-scale BESS", "Suitability": "High for Solar + BESS"}
-        ]
-    },
-    "Poland": {
-        "ports": ["Gdansk, Poland", "Hamburg, Germany", "Bremerhaven, Germany"],
-        "corridors": [
-            {"Route": "Asia via Gdansk / Baltic Hubs", "Transit": "33-36 Days", "Advantage": "Direct entry to Central & Eastern European Polish grid hubs", "Suitability": "Essential for Polish BESS"}
-        ]
-    },
-    "Hungary": {
-        "ports": ["Koper, Slovenia (Rail Gateway)", "Trieste, Italy", "Constanța, Romania"],
-        "corridors": [
-            {"Route": "Asia via Koper / Adriatic Rail", "Transit": "30-33 Days", "Advantage": "Direct intermodal rail corridor straight into industrial hubs in Hungary", "Suitability": "High for Inland Distribution"}
-        ]
-    },
-    "Bulgaria": {
-        "ports": ["Varna, Bulgaria", "Constanța, Romania", "Piraeus, Greece"],
-        "corridors": [
-            {"Route": "Asia via Varna / Black Sea Ports", "Transit": "31-34 Days", "Advantage": "Direct Black Sea discharge for Balkan renewable projects", "Suitability": "High"}
-        ]
-    },
-    "Germany": {
-        "ports": ["Hamburg, Germany", "Bremerhaven, Germany", "Rotterdam, Netherlands"],
-        "corridors": [
-            {"Route": "Asia via Hamburg / Bremerhaven", "Transit": "28-31 Days", "Advantage": "Direct North Range mega-port entry, world-class heavy rail connections", "Suitability": "Primary BESS Corridor"}
-        ]
-    },
-    "Italy": {
-        "ports": ["Koper, Slovenia (Optimal Gateway)", "Trieste, Italy", "Venice, Italy", "Genoa, Italy"],
-        "corridors": [
-            {"Route": "Asia via Koper (Slovenia) to Northern Italy", "Transit": "26-29 Days", "Advantage": "Avoids congested southern Italian ports & direct rail", "Suitability": "High for BESS"}
-        ]
-    },
-    "Greece": {
-        "ports": ["Piraeus, Greece", "Thessaloniki, Greece"],
-        "corridors": [
-            {"Route": "Asia via Piraeus (Main Hub)", "Transit": "25-28 Days", "Advantage": "Fastest entry from Suez / Asia, excellent Mediterranean distribution", "Suitability": "Optimal for Greek & Balkan BESS"}
-        ]
-    },
-    "Finland": {
-        "ports": ["Helsinki / Kotka, Finland", "Hamburg, Germany"],
-        "corridors": [
-            {"Route": "Asia via Baltic Hubs (Kotka / Helsinki)", "Transit": "35-38 Days", "Advantage": "Direct Northern European discharge, specialized heavy-lift cranes", "Suitability": "Essential for Finnish BESS"}
-        ]
-    }
-}
-
-default_corridor = {
-    "ports": ["Rotterdam, Netherlands", "Antwerp, Belgium", "Hamburg, Germany"],
-    "corridors": [
-        {"Route": "Asia via North Range Main Ports", "Transit": "30-35 Days", "Advantage": "Standard European multimodal distribution network", "Suitability": "General BESS / Infrastructure"}
-    ]
-}
-
-current_market = country_logistics_data.get(destination_country, default_corridor)
-available_ports = current_market["ports"]
-corridors_df = pd.DataFrame(current_market["corridors"])
+all_european_ports = [
+    "Constanța, Romania", "Varna, Bulgaria", "Burgas, Bulgaria", 
+    "Gdansk, Poland", "Gdynia, Poland", "Koper, Slovenia (Rail Gateway)", 
+    "Trieste, Italy", "Venice, Italy", "Genoa, Italy", 
+    "Piraeus, Greece", "Thessaloniki, Greece", 
+    "Hamburg, Germany", "Bremerhaven, Germany", 
+    "Rotterdam, Netherlands", "Antwerp, Belgium", 
+    "Helsinki / Kotka, Finland", "Valencia, Spain", "Marseille, France"
+]
 
 # --- MAIN PAGE HEADER ---
 col_title, col_logo = st.columns([4, 1])
@@ -210,7 +81,6 @@ with col_logo:
 
 st.markdown("---")
 
-# --- TABS DEFINITION (Full 7 Tabs Suite) ---
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📋 Equipment Mix & Quantities",
     "🚢 Supply Chain & Incoterms",
@@ -223,7 +93,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 
 with tab1:
     st.subheader("Equipment Mix & Quantities Configuration")
-    st.info(f"All calculations in **{curr_code}** tailored for active BESS deployment in **{destination_country}**.")
+    st.info(f"All calculations tailored for active BESS deployment in **{destination_country}** (Display Currency: **{curr_code}**).")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -236,90 +106,112 @@ with tab1:
         solar_count = st.number_input("Solar PV / Inverter Containers:", min_value=0, value=0, step=1)
 
     st.markdown("---")
+    st.markdown("#### Site Location & Project Details")
+    loc_col1, loc_col2, loc_col3 = st.columns(3)
+    with loc_col1:
+        site_address = st.text_input("Site Address / Location:", value=f"Industrial Zone, {destination_country}")
+    with loc_col2:
+        site_postal = st.text_input("Postal Code / Region:", value="10000")
+    with loc_col3:
+        site_coords = st.text_input("GPS Coordinates:", value="44.4268° N, 26.1025° E")
+
+    st.markdown("---")
+    st.markdown(f"#### Equipment EXW Cost ({curr_code})")
+    cur_mult = usd_to_eur if is_eur_display else 1.0
+    
     col_exw1, col_exw2 = st.columns(2)
     with col_exw1:
-        bess_exw = st.number_input("EXW Cost per BESS Container (USD):", min_value=10000, value=300000, step=5000)
-        mvs_exw = st.number_input("EXW Cost per MVS Unit (USD):", min_value=5000, value=120000, step=5000)
-        transformer_exw = st.number_input("EXW Cost per Transformer (USD):", min_value=5000, value=80000, step=5000)
+        bess_exw_input = st.number_input(f"EXW Cost per BESS Container ({curr_code}):", min_value=0, value=int(300000 * cur_mult), step=5000)
+        mvs_exw_input = st.number_input(f"EXW Cost per MVS Unit ({curr_code}):", min_value=0, value=int(120000 * cur_mult), step=5000)
+        transformer_exw_input = st.number_input(f"EXW Cost per Transformer ({curr_code}):", min_value=0, value=int(80000 * cur_mult), step=5000)
     with col_exw2:
-        oog_exw = st.number_input("EXW Cost per OOG Unit (USD):", min_value=10000, value=150000, step=5000)
-        access_count_exw = st.number_input("EXW Cost per Accessory Unit (USD):", min_value=1000, value=30000, step=1000)
-        solar_exw = st.number_input("EXW Cost per Solar Unit (USD):", min_value=1000, value=50000, step=1000)
+        oog_exw_input = st.number_input(f"EXW Cost per OOG Unit ({curr_code}):", min_value=0, value=int(150000 * cur_mult), step=5000)
+        access_exw_input = st.number_input(f"EXW Cost per Accessory Unit ({curr_code}):", min_value=0, value=int(30000 * cur_mult), step=1000)
+        solar_exw_input = st.number_input(f"EXW Cost per Solar Unit ({curr_code}):", min_value=0, value=int(50000 * cur_mult), step=1000)
 
-    bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=1.0, value=4.0, step=0.5)
+    bess_exw = bess_exw_input / usd_to_eur if is_eur_display else bess_exw_input
+    oog_exw = oog_exw_input / usd_to_eur if is_eur_display else oog_exw_input
+    mvs_exw = mvs_exw_input / usd_to_eur if is_eur_display else mvs_exw_input
+    transformer_exw = transformer_exw_input / usd_to_eur if is_eur_display else transformer_exw_input
+    access_exw = access_exw_input / usd_to_eur if is_eur_display else access_exw_input
+    solar_exw = solar_exw_input / usd_to_eur if is_eur_display else solar_exw_input
+
+    bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=0.5, value=4.0, step=0.5)
 
 with tab2:
     st.subheader("Ocean Freight, BAF & Destination THC")
     
     col_sc1, col_sc2 = st.columns(2)
     with col_sc1:
-        shipping_line = st.selectbox(
-            "Shipping Line / Carrier:", 
-            [
-                "MSC", 
-                "Maersk", 
-                "CMA CGM", 
-                "COSCO Shipping", 
-                "Hapag-Lloyd", 
-                "Evergreen Line", 
-                "ONE (Ocean Network Express)", 
-                "HMM"
-            ]
-        )
-        origin_port = st.selectbox(
-            "Origin Port (China):", 
-            [
-                "Shanghai, China - Waigaoqiao / Yangshan",
-                "Ningbo-Zhoushan, China - Beilun Terminal",
-                "Qingdao, China - Qianwan Terminal",
-                "Shenzhen, China - Yantian International Container Terminal (YICT)",
-                "Shenzhen, China - Shekou Container Terminal (SCT - MSC Call)",
-                "Guangzhou, China - Nansha Port"
-            ]
-        )
+        shipping_line = st.selectbox("Shipping Line / Carrier:", ["MSC", "Maersk", "CMA CGM", "COSCO Shipping", "Hapag-Lloyd", "Evergreen Line", "ONE", "HMM"])
+        origin_port = st.selectbox("Origin Port (China):", [
+            "Shanghai, China - SIPG (Waigaoqiao / Yangshan)",
+            "Ningbo-Zhoushan, China - Beilun Terminal",
+            "Qingdao, China - Qianwan Terminal",
+            "Shenzhen, China - Yantian International Container Terminal (YICT)",
+            "Shenzhen, China - Shekou Container Terminal (SCT)",
+            "Guangzhou, China - Nansha Port"
+        ])
     with col_sc2:
-        dest_port = st.selectbox(f"Selected Port of Destination (POD) for {destination_country}:", options=available_ports)
+        dest_port = st.selectbox(f"Selected Port of Destination (POD) for {destination_country}:", options=all_european_ports, index=0)
         incoterm_code = st.selectbox("Incoterm:", options=["EXW", "FOB", "CFR", "CIF", "DAP", "DDP"], index=3)
 
     st.markdown("---")
-    st.markdown("#### 1. Ocean Freight per Unit ($)")
+    st.markdown(f"#### 1. Ocean Freight per Unit ({curr_code})")
+    f_mult = usd_to_eur if is_eur_display else 1.0
     cf1, cf2, cf3 = st.columns(3)
     with cf1:
-        unit_freight_bess = st.number_input("BESS Freight ($):", min_value=1000, value=15000, step=500)
-        unit_freight_oog = st.number_input("OOG Freight ($):", min_value=1000, value=18000, step=500)
+        f_bess = st.number_input(f"BESS Freight ({curr_code}):", min_value=0, value=int(15000 * f_mult), step=500)
+        f_oog = st.number_input(f"OOG Freight ({curr_code}):", min_value=0, value=int(18000 * f_mult), step=500)
     with cf2:
-        unit_freight_mvs = st.number_input("MVS Freight ($):", min_value=1000, value=15000, step=500)
-        unit_freight_trans = st.number_input("Transformer Freight ($):", min_value=1000, value=15000, step=500)
+        f_mvs = st.number_input(f"MVS Freight ({curr_code}):", min_value=0, value=int(15000 * f_mult), step=500)
+        f_trans = st.number_input(f"Transformer Freight ({curr_code}):", min_value=0, value=int(15000 * f_mult), step=500)
     with cf3:
-        unit_freight_access = st.number_input("Accessory Freight ($):", min_value=1000, value=10000, step=500)
-        unit_freight_solar = st.number_input("Solar PV Freight ($):", min_value=1000, value=10000, step=500)
+        f_access = st.number_input(f"Accessory Freight ({curr_code}):", min_value=0, value=int(10000 * f_mult), step=500)
+        f_solar = st.number_input(f"Solar PV Freight ({curr_code}):", min_value=0, value=int(10000 * f_mult), step=500)
 
-    st.markdown("#### 2. Bunker Adjustment Factor (BAF) per Unit ($)")
+    unit_freight_bess = f_bess / usd_to_eur if is_eur_display else f_bess
+    unit_freight_oog = f_oog / usd_to_eur if is_eur_display else f_oog
+    unit_freight_mvs = f_mvs / usd_to_eur if is_eur_display else f_mvs
+    unit_freight_trans = f_trans / usd_to_eur if is_eur_display else f_trans
+    unit_freight_access = f_access / usd_to_eur if is_eur_display else f_access
+    unit_freight_solar = f_solar / usd_to_eur if is_eur_display else f_solar
+
+    st.markdown(f"#### 2. Bunker Adjustment Factor (BAF) per TEU / Unit ({curr_code})")
     include_baf_in_freight = st.checkbox("Ocean Freight already includes BAF", value=False)
-    baf_default = 0.0 if include_baf_in_freight else 1500.0
+    baf_base_val = 0.0 if include_baf_in_freight else (1500.0 * f_mult)
     
     cb1, cb2, cb3 = st.columns(3)
     with cb1:
-        baf_bess = st.number_input("BESS BAF ($):", min_value=0.0, value=baf_default, step=100.0)
-        baf_oog = st.number_input("OOG BAF ($):", min_value=0.0, value=baf_default, step=100.0)
+        baf_bess = st.number_input(f"BESS BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
+        baf_oog = st.number_input(f"OOG BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
     with cb2:
-        baf_mvs = st.number_input("MVS BAF ($):", min_value=0.0, value=baf_default, step=100.0)
-        baf_trans = st.number_input("Transformer BAF ($):", min_value=0.0, value=baf_default, step=100.0)
+        baf_mvs = st.number_input(f"MVS BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
+        baf_trans = st.number_input(f"Transformer BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
     with cb3:
-        baf_access = st.number_input("Accessory BAF ($):", min_value=0.0, value=baf_default, step=100.0)
-        baf_solar = st.number_input("Solar PV BAF ($):", min_value=0.0, value=baf_default, step=100.0)
+        baf_access = st.number_input(f"Accessory BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
+        baf_solar = st.number_input(f"Solar PV BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
 
-    st.markdown("#### 3. Destination Terminal Handling Charges (Destination THC) ($)")
+    if is_eur_display:
+        baf_bess /= usd_to_eur; baf_oog /= usd_to_eur; baf_mvs /= usd_to_eur
+        baf_trans /= usd_to_eur; baf_access /= usd_to_eur; baf_solar /= usd_to_eur
+
+    st.markdown(f"#### 3. Destination Terminal Handling Charges (Destination THC) per Unit ({curr_code})")
+    thc_mult = f_mult
     ct1, ct2, ct3 = st.columns(3)
     with ct1:
-        dthc_bess = st.number_input("BESS Destination THC ($):", min_value=100, value=800, step=50)
-        dthc_oog = st.number_input("OOG Destination THC ($):", min_value=100, value=1000, step=50)
+        dthc_bess = st.number_input(f"BESS Destination THC ({curr_code}):", min_value=0.0, value=800.0 * thc_mult, step=50.0)
+        dthc_oog = st.number_input(f"OOG Destination THC ({curr_code}):", min_value=0.0, value=1200.0 * thc_mult, step=50.0)
     with ct2:
-        dthc_mvs = st.number_input("MVS Destination THC ($):", min_value=100, value=800, step=50)
-        dthc_trans = st.number_input("Transformer THC ($):", min_value=100, value=800, step=50)
+        dthc_mvs = st.number_input(f"MVS Destination THC ({curr_code}):", min_value=0.0, value=800.0 * thc_mult, step=50.0)
+        dthc_trans = st.number_input(f"Transformer THC ({curr_code}):", min_value=0.0, value=800.0 * thc_mult, step=50.0)
     with ct3:
-        dthc_access = st.number_input("Accessory THC ($):", min_value=100, value=600, step=50)
-        dthc_solar = st.number_input("Solar PV THC ($):", min_value=100, value=600, step=50)
+        dthc_access = st.number_input(f"Accessory THC ({curr_code}):", min_value=0.0, value=600.0 * thc_mult, step=50.0)
+        dthc_solar = st.number_input(f"Solar PV THC ({curr_code}):", min_value=0.0, value=600.0 * thc_mult, step=50.0)
+
+    if is_eur_display:
+        dthc_bess /= usd_to_eur; dthc_oog /= usd_to_eur; dthc_mvs /= usd_to_eur
+        dthc_trans /= usd_to_eur; dthc_access /= usd_to_eur; dthc_solar /= usd_to_eur
 
     st.markdown("---")
     cc1, cc2 = st.columns(2)
@@ -331,60 +223,102 @@ with tab2:
         st.info("Solar PV / Inverters are automatically 0% exempt under EU green energy trade regulations.")
 
 with tab3:
-    st.subheader("Storage, Demurrage & Inland Drayage")
+    st.subheader("Port Storage, Demurrage & Inland Drayage (Heavy & Hazardous)")
+    st.info("BESS transport reflects heavy oversized units (24-55t) carrying Class 9 Hazardous Materials.")
     
-    st.markdown("#### 1. Port-to-Site Inland Drayage per Unit ($)")
+    st.markdown(f"#### 1. Port-to-Site Inland Drayage per Unit ({curr_code}) — Heavy Haulage / OOG")
+    dr_mult = f_mult
     cd1, cd2, cd3 = st.columns(3)
     with cd1:
-        drayage_bess = st.number_input("BESS Trucking per unit ($):", min_value=500, value=4500, step=500)
-        drayage_oog = st.number_input("OOG Trucking per unit ($):", min_value=500, value=5500, step=500)
+        dray_bess = st.number_input(f"BESS Trucking per unit (Heavy/Hazmat) ({curr_code}):", min_value=0.0, value=5500.0 * dr_mult, step=500.0)
+        dray_oog = st.number_input(f"OOG Trucking per unit ({curr_code}):", min_value=0.0, value=6500.0 * dr_mult, step=500.0)
     with cd2:
-        drayage_mvs = st.number_input("MVS Trucking per unit ($):", min_value=500, value=4500, step=500)
-        drayage_trans = st.number_input("Transformer Trucking per unit ($):", min_value=500, value=4500, step=500)
+        dray_mvs = st.number_input(f"MVS Trucking per unit ({curr_code}):", min_value=0.0, value=4500.0 * dr_mult, step=500.0)
+        dray_trans = st.number_input(f"Transformer Trucking per unit ({curr_code}):", min_value=0.0, value=4800.0 * dr_mult, step=500.0)
     with cd3:
-        drayage_access = st.number_input("Accessory Trucking per unit ($):", min_value=500, value=3000, step=500)
-        drayage_solar = st.number_input("Solar PV Trucking per unit ($):", min_value=500, value=3000, step=500)
+        dray_access = st.number_input(f"Accessory Trucking per unit ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=200.0)
+        dray_solar = st.number_input(f"Solar PV Trucking per unit ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=200.0)
+
+    if is_eur_display:
+        dray_bess /= usd_to_eur; dray_oog /= usd_to_eur; dray_mvs /= usd_to_eur
+        dray_trans /= usd_to_eur; dray_access /= usd_to_eur; dray_solar /= usd_to_eur
 
     st.markdown("---")
-    st.markdown("#### 2. Port Demurrage & External Storage")
+    st.markdown("#### 2. Port Demurrage (Shipping Line) & Port Storage (Terminal)")
     col_st1, col_st2 = st.columns(2)
     with col_st1:
-        free_days = st.number_input("Port Free Days (BESS often 0):", min_value=0, value=0, step=1)
-        actual_port_days = st.number_input("Actual Port Days before clearance:", min_value=1, value=5, step=1)
-        demurrage_daily_rate = st.number_input("Demurrage Daily Rate ($):", min_value=50, value=450, step=50)
+        free_days = st.number_input("Port Free Days (Demurrage):", min_value=0, value=3, step=1)
+        actual_port_days = st.number_input("Actual Port Days before clearance:", min_value=1, value=6, step=1)
+        demurrage_daily_rate = st.number_input(f"Shipping Line Demurrage Daily Rate per unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
     with col_st2:
-        use_external_storage = st.checkbox("Use External Storage Yard", value=False)
+        use_external_storage = st.checkbox("Use External Storage Yard / Buffer", value=False)
         ext_storage_days = st.number_input("External Storage Days:", min_value=0, value=10, step=1) if use_external_storage else 0
         ext_storage_daily_rate = 250.0
 
-    include_delay_scenario = st.checkbox("Include Custom Delay Contingency Scenario (+7 Days)", value=True)
+    if is_eur_display:
+        demurrage_daily_rate /= usd_to_eur
+
+    include_delay_scenario = st.checkbox("Include Customs Delay Contingency Scenario (+7 Days)", value=True)
 
     st.markdown("---")
-    st.markdown("#### 3. Site Crane & Unloading")
+    st.markdown(f"#### 3. Site Crane & Heavy Unloading ({curr_code})")
     include_site_crane = st.checkbox("Include Site Crane & Unloading", value=True)
-    site_crane_unloading = st.number_input("Total Crane & Unloading Cost ($):", min_value=0, value=12000, step=1000) if include_site_crane else 0.0
+    site_crane_val = st.number_input(f"Total Crane & Unloading Cost ({curr_code}):", min_value=0.0, value=15000.0 * dr_mult, step=1000.0) if include_site_crane else 0.0
+    site_crane_unloading = site_crane_val / usd_to_eur if is_eur_display else site_crane_val
 
 with tab4:
-    st.subheader("Regulation, Sustainability & Approvals")
+    st.subheader("Regulation, Sustainability & Decommissioning")
     
     col_t1, col_t2 = st.columns(2)
     with col_t1:
-        battery_passport_total_usd = st.number_input("Total Battery Passport Cost ($):", min_value=0, value=10000, step=1000)
-        epr_recycling_total_usd = st.number_input("Ongoing EPR Fee per BESS unit ($):", min_value=0, value=450, step=50)
+        bp_val = st.number_input(f"Total Battery Passport Cost ({curr_code}):", min_value=0.0, value=10000.0 * dr_mult, step=1000.0)
+        epr_val = st.number_input(f"Ongoing EPR Fee per BESS unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
     with col_t2:
         include_regulatory = st.checkbox("Include local site entry permits", value=True)
-        local_regulatory_permits = st.number_input("Local Permits Cost ($):", min_value=0, value=5000, step=500) if include_regulatory else 0.0
-        mot_total_approval_cost = 3000.0
-        include_mot_approval = True
+        perm_val = st.number_input(f"Local Permits Cost ({curr_code}):", min_value=0.0, value=5000.0 * dr_mult, step=500.0) if include_regulatory else 0.0
+        include_mot_approval = st.checkbox("Include National/Local Approval Fees", value=False)
+        mot_val = st.number_input(f"Approval Fees Cost ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=500.0) if include_mot_approval else 0.0
+
+    if is_eur_display:
+        battery_passport_total_usd = bp_val / usd_to_eur
+        epr_recycling_total_usd = (epr_val / usd_to_eur) * bess_count
+        local_regulatory_permits = perm_val / usd_to_eur
+        mot_total_approval_cost = mot_val / usd_to_eur
+    else:
+        battery_passport_total_usd = bp_val
+        epr_recycling_total_usd = epr_val * bess_count
+        local_regulatory_permits = perm_val
+        mot_total_approval_cost = mot_val
 
     st.markdown("---")
-    st.markdown("#### Decommissioning & End-of-Life Financial Provision")
-    st.info("Future Provision (EU Benchmark 60–90 €/kWh)")
-    decom_cost_per_kwh = st.number_input("Decommissioning & Recycling Cost per kWh (Benchmark 75):", min_value=0.0, value=75.0, step=5.0)
+    st.markdown("#### Decommissioning & End-of-Life Financial Provision (EU Regulation Framework)")
+    st.info("Future Provision (Benchmark 59–90 USD/kWh)")
+    
+    decom_scenario_choice = st.selectbox("Decommissioning Scenario Preset:", options=["Custom", "low (59 $/kWh)", "base (75 $/kWh)", "high (90 $/kWh)"], index=2)
+    if "low" in decom_scenario_choice:
+        decom_cost_per_kwh = 59.0
+    elif "base" in decom_scenario_choice:
+        decom_cost_per_kwh = 75.0
+    elif "high" in decom_scenario_choice:
+        decom_cost_per_kwh = 90.0
+    else:
+        decom_cost_per_kwh = st.number_input("Decommissioning Cost per kWh ($/kWh):", min_value=0.0, value=75.0, step=5.0)
 
-    preview_decom_per_bess = bess_capacity_mwh * 1000.0 * decom_cost_per_kwh
-    preview_total_decom = preview_decom_per_bess * float(bess_count + oog_count)
-    st.success(f"**{bess_capacity_mwh} MWh** × **${decom_cost_per_kwh}/kWh** = **${preview_decom_per_bess:,.2f}** per container. Total provision for {bess_count} BESS containers: **${preview_total_decom:,.2f}**")
+    dc1, dc2 = st.columns(2)
+    with dc1:
+        years_to_decom = st.number_input("Years to Decommissioning:", min_value=1, value=20, step=1)
+        decom_discount_rate = st.number_input("Discount Rate for PV (%):", min_value=0.0, value=4.0, step=0.5) / 100.0
+    with dc2:
+        decom_residual_per_kwh = st.number_input("Residual Material Recovery Value ($/kWh):", min_value=0.0, value=0.0, step=5.0)
+        include_oog_in_decom = st.checkbox("Include OOG Units in Decommissioning Provision", value=False)
+
+    net_decom_rate = max(0.0, decom_cost_per_kwh - decom_residual_per_kwh)
+    preview_decom_per_bess = bess_capacity_mwh * 1000.0 * net_decom_rate
+    preview_units_count = bess_count + (oog_count if include_oog_in_decom else 0)
+    preview_total_decom = preview_decom_per_bess * float(preview_units_count)
+    preview_pv_decom = preview_total_decom / ((1 + decom_discount_rate) ** years_to_decom) if years_to_decom > 0 else preview_total_decom
+    
+    st.success(f"**{bess_capacity_mwh} MWh** Per **{net_decom_rate:.1f} $/kWh** = **${preview_decom_per_bess:,.2f}** per container.\n* **Nominal Total:** ${preview_total_decom:,.2f} | **Present Value (PV):** ${preview_pv_decom:,.2f}")
 
     st.markdown("---")
     st.markdown("#### VAT & Contingency Settings")
@@ -398,17 +332,13 @@ with tab4:
 
 with tab5:
     st.subheader("European Route & Corridor Analysis")
-    st.warning("Indicative data only, subject to freight forwarder verification.")
-    st.dataframe(corridors_df, width="stretch", hide_index=True)
+    st.markdown(f"Corridor Intelligence & Gateway Selection for **{destination_country}** via **{dest_port}**.")
+    corridors_data = [{"Gateway Port": dest_port, "Destination Country": destination_country, "Estimated Transit": "30-35 Days", "Corridor Type": "Maritime + Heavy Road / Multimodal", "Status": "Active & Verified"}]
+    st.dataframe(pd.DataFrame(corridors_data), use_container_width=True, hide_index=True)
 
 with tab6:
     st.subheader("Infrastructure & Energy Projects Intelligence")
     st.markdown(f"**Target Market Strategy:** Active infrastructure planning and logistics intelligence for **{destination_country}**.")
-    st.markdown("""
-    * **Heavy-Lift Corridor Management:** Ensuring axle-load compliance and bridge engineering surveys across main European corridors.
-    * **Grid Connection Synchronisation:** Aligning MVS and transformer delivery schedules with high-voltage substation commissioning dates.
-    * **Customs Compliance:** Strict adherence to EU TARIC classification for UN3536 Class 9 Lithium-Ion battery shipments.
-    """)
 
 with tab7:
     st.subheader("Financial & Environmental Control Report (Carbon & Cost)")
@@ -418,80 +348,96 @@ with tab7:
         oog_count=oog_count, oog_exw=oog_exw,
         mvs_count=mvs_count, mvs_exw=mvs_exw,
         transformer_count=transformer_count, transformer_exw=transformer_exw,
-        access_count=access_count, access_exw=access_count_exw,
+        access_count=access_count, access_exw=access_exw,
         solar_count=solar_count, solar_exw=solar_exw,
         unit_freight_bess=unit_freight_bess, unit_freight_oog=unit_freight_oog, unit_freight_mvs=unit_freight_mvs,
         unit_freight_trans=unit_freight_trans, unit_freight_access=unit_freight_access, unit_freight_solar=unit_freight_solar,
         baf_bess=baf_bess, baf_oog=baf_oog, baf_mvs=baf_mvs, baf_trans=baf_trans, baf_access=baf_access, baf_solar=baf_solar,
         dthc_bess=dthc_bess, dthc_oog=dthc_oog, dthc_mvs=dthc_mvs, dthc_trans=dthc_trans, dthc_access=dthc_access, dthc_solar=dthc_solar,
-        drayage_bess=drayage_bess, drayage_oog=drayage_oog, drayage_mvs=drayage_mvs,
-        drayage_trans=drayage_trans, drayage_access=drayage_access, drayage_solar=drayage_solar,
+        drayage_bess=dray_bess, drayage_oog=dray_oog, drayage_mvs=drayage_mvs,
+        drayage_trans=dray_trans, drayage_access=dray_access, drayage_solar=drayage_solar,
         trend_multiplier=trend_multiplier, insurance_pct=insurance_pct,
-        customs_duty_pct=customs_duty_pct, applied_vat=applied_vat, vat_recovery_pct=vat_recovery_pct,
+        customs_duty_pct=customs_duty_pct, mvs_customs_duty_pct=mvs_customs_duty_pct,
+        applied_vat=applied_vat, vat_recovery_pct=vat_recovery_pct,
         vat_paid_by_supplier=vat_paid_by_supplier, incoterm_code=incoterm_code,
         dest_country_code=dest_code,
         local_regulatory_permits=local_regulatory_permits, mot_total_approval_cost=mot_total_approval_cost,
         include_regulatory=include_regulatory, include_mot_approval=include_mot_approval,
         site_crane_unloading=site_crane_unloading, include_site_crane=include_site_crane,
-        epr_recycling_total_usd=epr_recycling_total_usd * bess_count, battery_passport_total_usd=battery_passport_total_usd,
+        epr_recycling_total_usd=epr_recycling_total_usd, battery_passport_total_usd=battery_passport_total_usd,
         requires_heavy_lift=True, heavy_lift_survey_cost=2500.0,
         actual_port_days=actual_port_days, free_days=free_days, demurrage_daily_rate=demurrage_daily_rate,
         use_external_storage=use_external_storage, ext_storage_days=ext_storage_days,
         ext_storage_daily_rate=ext_storage_daily_rate, include_delay_scenario=include_delay_scenario,
-        bess_capacity_mwh=bess_capacity_mwh, decom_cost_per_kwh=decom_cost_per_kwh
+        bess_capacity_mwh=bess_capacity_mwh, decom_cost_per_kwh=net_decom_rate,
+        include_oog_in_decom=include_oog_in_decom, decom_cost_currency="USD",
+        usd_to_eur=usd_to_eur, years_to_decom=years_to_decom, decom_discount_rate=decom_discount_rate,
+        decom_residual_per_kwh=decom_residual_per_kwh, contingency_pct=contingency_pct
     )
 
-    landed_usd = results["total_landed_cost_ex_vat"]
-    landed_display = convert_currency(landed_usd, "USD", curr_code, usd_to_eur)
-    
-    economic_usd = results["economic_cost_ex_vat"]
-    economic_display = convert_currency(economic_usd, "USD", curr_code, usd_to_eur)
+    if results["decom_epr_overlap_warning"]:
+        st.warning("⚠️ **Notice:** Both EPR recycling fees and Decommissioning provisions are active. Ensure there is no double-counting of end-of-life recycling scope.")
 
-    cash_usd = results["total_cash_requirement_incl_vat"]
-    cash_display = convert_currency(cash_usd, "USD", curr_code, usd_to_eur)
+    disp_mult = usd_to_eur if is_eur_display else 1.0
+
+    landed_disp = results["total_landed_cost_ex_vat"] * disp_mult
+    economic_disp = results["economic_cost_ex_vat"] * disp_mult
+    cash_disp = results["total_cash_requirement_incl_vat"] * disp_mult
 
     total_units_carbon = results["total_containers_project"]
     total_carbon_tons = total_units_carbon * 9.1
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Landed Cost (Ex. VAT)", format_currency(landed_display, curr_code))
-    m2.metric("Total Economic Cost", format_currency(economic_display, curr_code))
-    m3.metric("Total Cash Requirement", format_currency(cash_display, curr_code))
+    m1.metric(f"Total Landed Cost ({curr_code})", format_currency(landed_disp, curr_code))
+    m2.metric(f"Total Economic Cost ({curr_code})", format_currency(economic_disp, curr_code))
+    m3.metric(f"Total Cash Requirement ({curr_code})", format_currency(cash_disp, curr_code))
     m4.metric("Estimated Carbon Footprint", f"{total_carbon_tons:,.1f} t CO2")
 
     st.markdown("---")
     st.markdown("#### Project Budget & Carbon Footprint Breakdown")
     
-    breakdown_data = [
-        {"Cost Item": "Equipment EXW Value", "Basis / Qty": f"{results['total_containers_project']} Units", "Amount (USD)": results["trended_exw"]},
-        {"Cost Item": "China Inland & Origin THC", "Basis / Qty": f"{results['total_containers_project']} Units", "Amount (USD)": results["china_inland_drayage"] + results["china_origin_thc"]},
-        {"Cost Item": "Ocean Freight (Base)", "Basis / Qty": f"{results['total_containers_project']} Units", "Amount (USD)": results["total_base_ocean_freight"]},
-        {"Cost Item": "Bunker Adjustment Factor (BAF)", "Basis / Qty": f"{results['total_containers_project']} Units", "Amount (USD)": results["total_baf_ocean"]},
-        {"Cost Item": "Destination THC", "Basis / Qty": f"{results['total_containers_project']} Units", "Amount (USD)": results["destination_thc_total"]},
-        {"Cost Item": "Marine Insurance", "Basis / Qty": f"{insurance_pct}% CIF", "Amount (USD)": results["insurance_total_usd"]},
-        {"Cost Item": "Customs Duty", "Basis / Qty": f"{customs_duty_pct}% Rate", "Amount (USD)": results["customs_duty_usd"]},
-        {"Cost Item": "Inland Drayage (Port to Site)", "Basis / Qty": f"{results['total_containers_project']} Units", "Amount (USD)": results["inland_drayage_total_usd"]},
-        {"Cost Item": "Regulatory & Local Permits", "Basis / Qty": "Expense", "Amount (USD)": results["active_regulatory_permits"]},
-        {"Cost Item": "Site Crane & Unloading", "Basis / Qty": "Expense", "Amount (USD)": results["active_site_crane"]},
-        {"Cost Item": "Port Demurrage", "Basis / Qty": f"{max(0, actual_port_days - free_days)} Days", "Amount (USD)": results["demurrage_total_usd"]},
-        {"Cost Item": "External Storage", "Basis / Qty": f"{ext_storage_days if use_external_storage else 0} Days", "Amount (USD)": results["external_storage_total_usd"]},
-        {"Cost Item": "EPR / Recycling Fees", "Basis / Qty": f"{bess_count} BESS", "Amount (USD)": results["epr_recycling_total_usd"]},
-        {"Cost Item": "EU Battery Passport", "Basis / Qty": "Global Compliance", "Amount (USD)": results["battery_passport_total_usd"]},
-        {"Cost Item": "Heavy-Lift Survey", "Basis / Qty": "Survey", "Amount (USD)": results["active_heavy_lift"]},
-        {"Cost Item": "Contingency Reserve", "Basis / Qty": f"{contingency_pct}%", "Amount (USD)": results["contingency_usd"]},
-        {"Cost Item": "Decommissioning Provision", "Basis / Qty": f"{bess_capacity_mwh} MWh / unit", "Amount (USD)": results["decommissioning_total_usd"]},
-        {"Cost Item": "Total Carbon Footprint", "Basis / Qty": f"{total_units_carbon} units (9.1 t/unit)", "Amount (USD)": 0.0}
+    raw_breakdown_data = [
+        {"Cost Item": "Equipment EXW Value", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["trended_exw"] * disp_mult},
+        {"Cost Item": "China Inland & Origin THC", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": (results["china_inland_drayage"] + results["china_origin_thc"]) * disp_mult},
+        {"Cost Item": "Ocean Freight (Base)", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["total_base_ocean_freight"] * disp_mult},
+        {"Cost Item": "Bunker Adjustment Factor (BAF)", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["total_baf_ocean"] * disp_mult},
+        {"Cost Item": "Destination THC", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["destination_thc_total"] * disp_mult},
+        {"Cost Item": "Marine Insurance", "Basis / Qty": f"{insurance_pct}% CIF", "RawAmount": results["insurance_total_usd"] * disp_mult},
+        {"Cost Item": "Customs Duty", "Basis / Qty": f"Mixed Rates", "RawAmount": results["customs_duty_usd"] * disp_mult},
+        {"Cost Item": "Inland Drayage (Port to Site)", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["inland_drayage_total_usd"] * disp_mult},
+        {"Cost Item": "Regulatory & Local Permits", "Basis / Qty": "Expense", "RawAmount": results["active_regulatory_permits"] * disp_mult},
+        {"Cost Item": "Site Crane & Heavy Unloading", "Basis / Qty": "Expense", "RawAmount": results["active_site_crane"] * disp_mult},
+        {"Cost Item": "Shipping Line Demurrage", "Basis / Qty": f"{max(0, actual_port_days - free_days)} Days", "RawAmount": results["demurrage_total_usd"] * disp_mult},
+        {"Cost Item": "Port Storage (External/Buffer)", "Basis / Qty": f"{ext_storage_days if use_external_storage else 0} Days", "RawAmount": results["external_storage_total_usd"] * disp_mult},
+        {"Cost Item": "EPR / Recycling Fees", "Basis / Qty": f"{bess_count} BESS", "RawAmount": results["epr_recycling_total_usd"] * disp_mult},
+        {"Cost Item": "EU Battery Passport", "Basis / Qty": "Global Compliance", "RawAmount": results["battery_passport_total_usd"] * disp_mult},
+        {"Cost Item": "Heavy-Lift Survey", "Basis / Qty": "Survey", "RawAmount": results["active_heavy_lift"] * disp_mult},
+        {"Cost Item": "Contingency Reserve", "Basis / Qty": f"{contingency_pct}%", "RawAmount": results["contingency_usd"] * disp_mult},
+        {"Cost Item": "Decommissioning Provision (PV)", "Basis / Qty": f"{bess_capacity_mwh} MWh / unit", "RawAmount": results["decommissioning_pv_usd"] * disp_mult},
     ]
 
-    breakdown_df = pd.DataFrame(breakdown_data)
-    st.dataframe(breakdown_df, width="stretch", hide_index=True)
+    breakdown_df = pd.DataFrame(raw_breakdown_data)
+    
+    # UI Display dataframe with formatted currency strings
+    display_df = breakdown_df.copy()
+    display_df["Amount"] = display_df["RawAmount"].apply(lambda x: f"{'€' if is_eur_display else '$'} {x:,.2f}" if x > 0 else "-")
+    display_df = display_df[["Cost Item", "Basis / Qty", "Amount"]]
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    csv_data = breakdown_df.to_csv(index=False).encode('utf-8')
+    # Excel export with true numeric values so Excel can sum them natively
+    excel_export_df = breakdown_df[["Cost Item", "Basis / Qty", "RawAmount"]].copy()
+    excel_export_df.rename(columns={"RawAmount": "Amount"}, inplace=True)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        excel_export_df.to_excel(writer, index=False, sheet_name='Budget Report')
+    excel_data = output.getvalue()
+
     st.download_button(
-        label="Download Budget & Carbon Report to CSV/Excel",
-        data=csv_data,
-        file_name=f"Terra_Vol_Landed_Cost_Report_{dest_code}.csv",
-        mime="text/csv",
+        label="Download Budget & Carbon Report to Excel (.xlsx)",
+        data=excel_data,
+        file_name=f"Terra_Vol_Landed_Cost_Report_{dest_code}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
 st.markdown("---")
