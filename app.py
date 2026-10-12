@@ -10,6 +10,61 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- CUSTOM CSS STYLING FOR A LUXURY SaaS LOOK ---
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #FFFFFF;
+    }
+    div[data-testid="metric-container"] {
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .stButton>button {
+        background-color: #0284C7;
+        color: white;
+        border-radius: 8px;
+        padding: 8px 20px;
+        font-weight: 600;
+        border: none;
+        box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
+        transition: all 0.2s ease-in-out;
+    }
+    .stButton>button:hover {
+        background-color: #0369A1;
+        box-shadow: 0 4px 8px rgba(2, 132, 199, 0.3);
+    }
+    div.stDownloadButton>button {
+        background-color: #059669;
+        color: white;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+    }
+    div.stDownloadButton>button:hover {
+        background-color: #047857;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #F1F5F9;
+        border-radius: 6px 6px 0px 0px;
+        padding: 10px 16px;
+        font-weight: 500;
+        color: #475569;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #0284C7 !important;
+        color: white !important;
+        font-weight: 600;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Session State for live exchange rate refresh
 if "usd_eur" not in st.session_state:
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
@@ -17,7 +72,7 @@ if "usd_eur" not in st.session_state:
 def refresh_rate():
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
 
-# --- SIDEBAR ---
+# --- SIDEBAR & EUROPEAN COUNTRIES EXPANDED ---
 logo_path = "logo.png"
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=180)
@@ -43,7 +98,7 @@ trend_multiplier = st.sidebar.slider(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("#### 💱 Exchange Rates (Dynamic Live)")
+st.sidebar.markdown("#### Exchange Rates (Dynamic Live)")
 
 st.sidebar.number_input(
     "USD to EUR Exchange Rate:",
@@ -55,34 +110,56 @@ st.sidebar.number_input(
 )
 usd_to_eur = st.session_state.usd_eur
 
-st.sidebar.button("🔄 Refresh Live Rates", on_click=refresh_rate)
+st.sidebar.button("Refresh Live Rates", on_click=refresh_rate)
 
 destination_country = st.sidebar.selectbox(
     "Project Destination Country:",
-    options=["Italy", "Romania", "Finland", "Germany", "Greece"],
+    options=[
+        "Romania", 
+        "Poland", 
+        "Hungary", 
+        "Bulgaria", 
+        "Germany", 
+        "Italy", 
+        "Greece", 
+        "Finland", 
+        "France", 
+        "Spain", 
+        "Netherlands", 
+        "Belgium", 
+        "Austria", 
+        "Czech Republic", 
+        "Slovakia", 
+        "Croatia"
+    ],
     index=0
 )
 dest_code = destination_country[:2].upper()
 
-# Smart Port & Corridor Intelligence mapped to active BESS markets
+# Comprehensive Port & Corridor Intelligence for European Markets
 country_logistics_data = {
-    "Italy": {
-        "ports": ["Koper, Slovenia (Optimal Gateway)", "Trieste, Italy", "Venice, Italy", "Genoa, Italy"],
-        "corridors": [
-            {"Route": "Asia via Koper (Slovenia) to Northern Italy", "Transit": "26-29 Days", "Advantage": "Avoids congested southern Italian ports & direct rail", "Suitability": "High for BESS"},
-            {"Route": "Asia via Trieste / Venice to Central Italy", "Transit": "28-31 Days", "Advantage": "Strategic Adriatic entry with strong heavy-haul road access", "Suitability": "High"}
-        ]
-    },
     "Romania": {
         "ports": ["Constanța, Romania", "Koper, Slovenia (Multimodal via Rail)", "Piraeus, Greece"],
         "corridors": [
             {"Route": "Asia via Constanța (Black Sea)", "Transit": "32-35 Days", "Advantage": "Optimal for Eastern Europe / Balkan & Romanian utility-scale BESS", "Suitability": "High for Solar + BESS"}
         ]
     },
-    "Finland": {
-        "ports": ["Helsinki / Kotka, Finland", "Hamburg, Germany"],
+    "Poland": {
+        "ports": ["Gdansk, Poland", "Hamburg, Germany", "Bremerhaven, Germany"],
         "corridors": [
-            {"Route": "Asia via Baltic Hubs (Kotka / Helsinki)", "Transit": "35-38 Days", "Advantage": "Direct Northern European discharge, specialized heavy-lift cranes", "Suitability": "Essential for Finnish BESS"}
+            {"Route": "Asia via Gdansk / Baltic Hubs", "Transit": "33-36 Days", "Advantage": "Direct entry to Central & Eastern European Polish grid hubs", "Suitability": "Essential for Polish BESS"}
+        ]
+    },
+    "Hungary": {
+        "ports": ["Koper, Slovenia (Rail Gateway)", "Trieste, Italy", "Constanța, Romania"],
+        "corridors": [
+            {"Route": "Asia via Koper / Adriatic Rail", "Transit": "30-33 Days", "Advantage": "Direct intermodal rail corridor straight into industrial hubs in Hungary", "Suitability": "High for Inland Distribution"}
+        ]
+    },
+    "Bulgaria": {
+        "ports": ["Varna, Bulgaria", "Constanța, Romania", "Piraeus, Greece"],
+        "corridors": [
+            {"Route": "Asia via Varna / Black Sea Ports", "Transit": "31-34 Days", "Advantage": "Direct Black Sea discharge for Balkan renewable projects", "Suitability": "High"}
         ]
     },
     "Germany": {
@@ -91,15 +168,34 @@ country_logistics_data = {
             {"Route": "Asia via Hamburg / Bremerhaven", "Transit": "28-31 Days", "Advantage": "Direct North Range mega-port entry, world-class heavy rail connections", "Suitability": "Primary BESS Corridor"}
         ]
     },
+    "Italy": {
+        "ports": ["Koper, Slovenia (Optimal Gateway)", "Trieste, Italy", "Venice, Italy", "Genoa, Italy"],
+        "corridors": [
+            {"Route": "Asia via Koper (Slovenia) to Northern Italy", "Transit": "26-29 Days", "Advantage": "Avoids congested southern Italian ports & direct rail", "Suitability": "High for BESS"}
+        ]
+    },
     "Greece": {
         "ports": ["Piraeus, Greece", "Thessaloniki, Greece"],
         "corridors": [
             {"Route": "Asia via Piraeus (Main Hub)", "Transit": "25-28 Days", "Advantage": "Fastest entry from Suez / Asia, excellent Mediterranean distribution", "Suitability": "Optimal for Greek & Balkan BESS"}
         ]
+    },
+    "Finland": {
+        "ports": ["Helsinki / Kotka, Finland", "Hamburg, Germany"],
+        "corridors": [
+            {"Route": "Asia via Baltic Hubs (Kotka / Helsinki)", "Transit": "35-38 Days", "Advantage": "Direct Northern European discharge, specialized heavy-lift cranes", "Suitability": "Essential for Finnish BESS"}
+        ]
     }
 }
 
-current_market = country_logistics_data.get(destination_country, country_logistics_data["Romania"])
+default_corridor = {
+    "ports": ["Rotterdam, Netherlands", "Antwerp, Belgium", "Hamburg, Germany"],
+    "corridors": [
+        {"Route": "Asia via North Range Main Ports", "Transit": "30-35 Days", "Advantage": "Standard European multimodal distribution network", "Suitability": "General BESS / Infrastructure"}
+    ]
+}
+
+current_market = country_logistics_data.get(destination_country, default_corridor)
 available_ports = current_market["ports"]
 corridors_df = pd.DataFrame(current_market["corridors"])
 
@@ -232,7 +328,7 @@ with tab2:
         customs_duty_pct = st.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=2.7, step=0.1)
     with cc2:
         mvs_customs_duty_pct = st.number_input("Customs Duty Rate (%) - MVS / Transformers:", min_value=0.0, value=0.0, step=0.1)
-        st.info("💡 Solar PV / Inverters are automatically 0% exempt under EU green energy trade regulations.")
+        st.info("Solar PV / Inverters are automatically 0% exempt under EU green energy trade regulations.")
 
 with tab3:
     st.subheader("Storage, Demurrage & Inland Drayage")
@@ -282,17 +378,16 @@ with tab4:
         include_mot_approval = True
 
     st.markdown("---")
-    st.markdown("#### 🔄 Decommissioning & End-of-Life Financial Provision")
-    st.info("📌 Future Provision (EU Benchmark 60–90 €/kWh)")
+    st.markdown("#### Decommissioning & End-of-Life Financial Provision")
+    st.info("Future Provision (EU Benchmark 60–90 €/kWh)")
     decom_cost_per_kwh = st.number_input("Decommissioning & Recycling Cost per kWh (Benchmark 75):", min_value=0.0, value=75.0, step=5.0)
 
-    # Calculate preview info
     preview_decom_per_bess = bess_capacity_mwh * 1000.0 * decom_cost_per_kwh
     preview_total_decom = preview_decom_per_bess * float(bess_count + oog_count)
-    st.success(f"✅ **{bess_capacity_mwh} MWh** × **${decom_cost_per_kwh}/kWh** = **${preview_decom_per_bess:,.2f}** per container. Total provision for {bess_count} BESS containers: **${preview_total_decom:,.2f}**")
+    st.success(f"**{bess_capacity_mwh} MWh** × **${decom_cost_per_kwh}/kWh** = **${preview_decom_per_bess:,.2f}** per container. Total provision for {bess_count} BESS containers: **${preview_total_decom:,.2f}**")
 
     st.markdown("---")
-    st.markdown("#### 💰 VAT & Contingency Settings")
+    st.markdown("#### VAT & Contingency Settings")
     vc1, vc2 = st.columns(2)
     with vc1:
         applied_vat = st.number_input("Import VAT Rate (%):", min_value=0.0, value=19.0, step=0.5)
@@ -303,7 +398,7 @@ with tab4:
 
 with tab5:
     st.subheader("European Route & Corridor Analysis")
-    st.warning("⚠ Indicative data only, subject to freight forwarder verification.")
+    st.warning("Indicative data only, subject to freight forwarder verification.")
     st.dataframe(corridors_df, width="stretch", hide_index=True)
 
 with tab6:
@@ -318,7 +413,6 @@ with tab6:
 with tab7:
     st.subheader("Financial & Environmental Control Report (Carbon & Cost)")
     
-    # --- RUN CALCULATION ENGINE ---
     results = calculate_project_costs(
         bess_count=bess_count, bess_exw=bess_exw,
         oog_count=oog_count, oog_exw=oog_exw,
@@ -347,7 +441,6 @@ with tab7:
         bess_capacity_mwh=bess_capacity_mwh, decom_cost_per_kwh=decom_cost_per_kwh
     )
 
-    # Convert totals to display currency (EUR or USD)
     landed_usd = results["total_landed_cost_ex_vat"]
     landed_display = convert_currency(landed_usd, "USD", curr_code, usd_to_eur)
     
@@ -357,7 +450,6 @@ with tab7:
     cash_usd = results["total_cash_requirement_incl_vat"]
     cash_display = convert_currency(cash_usd, "USD", curr_code, usd_to_eur)
 
-    # Carbon Footprint Estimate (approx 9.1 tons CO2 per container ocean+road)
     total_units_carbon = results["total_containers_project"]
     total_carbon_tons = total_units_carbon * 9.1
 
@@ -368,7 +460,7 @@ with tab7:
     m4.metric("Estimated Carbon Footprint", f"{total_carbon_tons:,.1f} t CO2")
 
     st.markdown("---")
-    st.markdown("#### 📋 Project Budget & Carbon Footprint Breakdown")
+    st.markdown("#### Project Budget & Carbon Footprint Breakdown")
     
     breakdown_data = [
         {"Cost Item": "Equipment EXW Value", "Basis / Qty": f"{results['total_containers_project']} Units", "Amount (USD)": results["trended_exw"]},
@@ -388,16 +480,15 @@ with tab7:
         {"Cost Item": "Heavy-Lift Survey", "Basis / Qty": "Survey", "Amount (USD)": results["active_heavy_lift"]},
         {"Cost Item": "Contingency Reserve", "Basis / Qty": f"{contingency_pct}%", "Amount (USD)": results["contingency_usd"]},
         {"Cost Item": "Decommissioning Provision", "Basis / Qty": f"{bess_capacity_mwh} MWh / unit", "Amount (USD)": results["decommissioning_total_usd"]},
-        {"Cost Item": "Total Carbon Footprint", "Basis / Qty": f"{total_units_carbon} units (9.1 t/unit)", "Amount (USD)": 0.0} # Placeholder row for carbon
+        {"Cost Item": "Total Carbon Footprint", "Basis / Qty": f"{total_units_carbon} units (9.1 t/unit)", "Amount (USD)": 0.0}
     ]
 
     breakdown_df = pd.DataFrame(breakdown_data)
     st.dataframe(breakdown_df, width="stretch", hide_index=True)
 
-    # --- EXCEL DOWNLOAD BUTTON ---
     csv_data = breakdown_df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Download Budget & Carbon Report to CSV/Excel",
+        label="Download Budget & Carbon Report to CSV/Excel",
         data=csv_data,
         file_name=f"Terra_Vol_Landed_Cost_Report_{dest_code}.csv",
         mime="text/csv",
