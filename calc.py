@@ -13,7 +13,6 @@ def get_live_exchange_rate(base_currency="USD", target_currency="EUR"):
     except Exception:
         pass
     
-    # Fallback default rates if offline or API fails
     fallbacks = {"EUR": 0.92, "USD": 1.0}
     return fallbacks.get(target_currency, 1.0)
 
@@ -27,6 +26,33 @@ def format_currency(amount, curr_code="EUR"):
     """Formats amount into a clean currency string."""
     symbol = "€" if "EUR" in curr_code else "$"
     return f"{symbol} {amount:,.2f}"
+
+def calculate_decommissioning(
+    bess_count, oog_count, bess_capacity_mwh, decom_cost_per_kwh,
+    apply_decommissioning,
+    include_oog_in_decom=False,
+    cost_currency="EUR",
+    usd_to_eur=0.92,
+    years_to_decom=20,
+    discount_rate=0.0,
+    residual_value_per_kwh=0.0,
+):
+    if not apply_decommissioning:
+        return {"units": 0, "nominal_usd": 0.0, "pv_usd": 0.0}
+
+    units = bess_count + (oog_count if include_oog_in_decom else 0)
+    kwh_per_unit = bess_capacity_mwh * 1000.0
+    net_per_kwh = decom_cost_per_kwh - residual_value_per_kwh
+    nominal_native = units * kwh_per_unit * net_per_kwh
+
+    # המרה לדולרים לצורך אחידות בתוך מנוע החישובים הכללי של הפרויקט
+    if cost_currency == "EUR":
+        nominal_usd = nominal_native / usd_to_eur if usd_to_eur > 0 else nominal_native
+    else:
+        nominal_usd = nominal_native
+
+    pv_usd = nominal_usd / ((1 + discount_rate) ** years_to_decom) if years_to_decom > 0 else nominal_usd
+    return {"units": units, "nominal_usd": nominal_usd, "pv_usd": pv_usd}
 
 def calculate_project_costs(
     bess_count, bess_exw,
@@ -46,7 +72,9 @@ def calculate_project_costs(
     epr_recycling_total_usd, battery_passport_total_usd,
     requires_heavy_lift, heavy_lift_survey_cost,
     actual_port_days, free_days, demurrage_daily_rate, use_external_storage, ext_storage_days, ext_storage_daily_rate, include_delay_scenario,
-    bess_capacity_mwh, decom_cost_per_kwh
+    bess_capacity_mwh, decom_cost_per_kwh,
+    apply_decommissioning=True, include_oog_in_decom=False, cost_currency="EUR",
+    usd_to_eur=0.92, years_to_decom=20, discount_rate=0.0, residual_value_per_kwh=0.0
 ):
     total_containers_project = max(1, bess_count + oog_count + mvs_count + transformer_count + access_count + solar_count)
     
@@ -122,9 +150,23 @@ def calculate_project_costs(
 
     if dest_country_code == "IL":
         decommissioning_total_usd = 0.0
+        decom_pv_usd = 0.0
     else:
-        decom_cost_per_bess = bess_capacity_mwh * 1000.0 * decom_cost_per_kwh
-        decommissioning_total_usd = decom_cost_per_bess * float(bess_count + oog_count)
+        decom_res = calculate_decommissioning(
+            bess_count=bess_count,
+            oog_count=oog_count,
+            bess_capacity_mwh=bess_capacity_mwh,
+            decom_cost_per_kwh=decom_cost_per_kwh,
+            apply_decommissioning=apply_decommissioning,
+            include_oog_in_decom=include_oog_in_decom,
+            cost_currency=cost_currency,
+            usd_to_eur=usd_to_eur,
+            years_to_decom=years_to_decom,
+            discount_rate=discount_rate,
+            residual_value_per_kwh=residual_value_per_kwh
+        )
+        decommissioning_total_usd = decom_res["nominal_usd"]
+        decom_pv_usd = decom_res["pv_usd"]
 
     project_delivery_cost = (
         trended_exw + 
@@ -183,6 +225,7 @@ def calculate_project_costs(
         "battery_passport_total_usd": battery_passport_total_usd,
         "active_heavy_lift": active_heavy_lift,
         "decommissioning_total_usd": decommissioning_total_usd,
+        "decom_pv_usd": decom_pv_usd,
         "contingency_usd": contingency_usd,
         "total_landed_cost_ex_vat": total_landed_cost_ex_vat,
         "supplier_scope_total": supplier_scope_total,
