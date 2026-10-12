@@ -144,7 +144,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📂 Infrastructure Projects",
     "📊 Budget & Carbon Report"
 ])
-  with tab1:
+
+with tab1:
     st.subheader("Equipment Mix & Quantities Configuration")
     st.info(f"All calculations tailored for active BESS deployment in **{destination_country}** (Display Currency: **{curr_code}**).")
     
