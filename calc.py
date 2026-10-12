@@ -1,3 +1,33 @@
+import requests
+
+def get_live_exchange_rate(base_currency="USD", target_currency="EUR"):
+    """Fetches live exchange rate using a free public API with fallback."""
+    try:
+        url = f"https://open.er-api.com/v6/latest/{base_currency}"
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            rate = data.get("rates", {}).get(target_currency)
+            if rate:
+                return float(rate)
+    except Exception:
+        pass
+    
+    # Fallback default rates if offline or API fails
+    fallbacks = {"EUR": 0.92, "USD": 1.0}
+    return fallbacks.get(target_currency, 1.0)
+
+def convert_currency(amount_in_usd, from_curr="USD", to_curr="EUR", custom_rate=0.92):
+    """Converts amount between USD and EUR."""
+    if "EUR" in to_curr or to_curr == "EUR":
+        return amount_in_usd * custom_rate
+    return amount_in_usd
+
+def format_currency(amount, curr_code="EUR"):
+    """Formats amount into a clean currency string."""
+    symbol = "€" if "EUR" in curr_code else "$"
+    return f"{symbol} {amount:,.2f}"
+
 def calculate_project_costs(
     bess_count, bess_exw,
     oog_count, oog_exw,
