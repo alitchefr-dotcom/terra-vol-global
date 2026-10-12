@@ -14,15 +14,46 @@ st.set_page_config(
 # --- CUSTOM CSS STYLING ---
 st.markdown("""
     <style>
-    .stApp { background-color: #FFFFFF; }
+    .stApp {
+        background-color: #FFFFFF;
+    }
     div[data-testid="metric-container"] {
         background-color: #F8FAFC;
         border: 1px solid #E2E8F0;
         padding: 15px 20px;
         border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
-    .stButton>button { background-color: #0284C7; color: white; border-radius: 8px; font-weight: 600; border: none; }
-    div.stDownloadButton>button { background-color: #059669; color: white; border-radius: 8px; font-weight: 600; border: none; }
+    .stButton>button {
+        background-color: #0284C7;
+        color: white;
+        border-radius: 8px;
+        padding: 8px 20px;
+        font-weight: 600;
+        border: none;
+    }
+    div.stDownloadButton>button {
+        background-color: #059669;
+        color: white;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #F1F5F9;
+        border-radius: 6px 6px 0px 0px;
+        padding: 10px 16px;
+        font-weight: 500;
+        color: #475569;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #0284C7 !important;
+        color: white !important;
+        font-weight: 600;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -40,22 +71,45 @@ if os.path.exists(logo_path):
 st.sidebar.markdown("### Terra Vol Global")
 st.sidebar.markdown("---")
 
-display_currency = st.sidebar.selectbox("Main Display Currency:", options=["EUR (€)", "USD ($)"], index=0)
+display_currency = st.sidebar.selectbox(
+    "Main Display Currency:",
+    options=["EUR (€)", "USD ($)"],
+    index=0
+)
 curr_code = "EUR" if "EUR" in display_currency else "USD"
 is_eur_display = ("EUR" in display_currency)
 
 delivery_date = st.sidebar.date_input("Delivery Target Date:", value=date(2027, 6, 30))
-trend_multiplier = st.sidebar.slider("Equipment Cost Trend Multiplier:", min_value=0.8, max_value=1.3, value=1.0, step=0.01)
+
+trend_multiplier = st.sidebar.slider(
+    "Equipment Cost Trend Multiplier:",
+    min_value=0.8,
+    max_value=1.3,
+    value=1.0,
+    step=0.01
+)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("#### Exchange Rates (Dynamic Live)")
-st.sidebar.number_input("USD to EUR Exchange Rate:", min_value=0.5, max_value=2.0, step=0.001, format="%.4f", key="usd_eur")
+st.sidebar.number_input(
+    "USD to EUR Exchange Rate:",
+    min_value=0.5,
+    max_value=2.0,
+    step=0.001,
+    format="%.4f",
+    key="usd_eur"
+)
 usd_to_eur = st.session_state.usd_eur
 st.sidebar.button("Refresh Live Rates", on_click=refresh_rate)
 
 destination_country = st.sidebar.selectbox(
     "Project Destination Country:",
-    options=["Romania", "Poland", "Hungary", "Bulgaria", "Germany", "Italy", "Greece", "Finland", "France", "Spain", "Netherlands", "Belgium", "Austria", "Czech Republic", "Slovakia", "Croatia"],
+    options=[
+        "Romania", "Poland", "Hungary", "Bulgaria", "Germany", 
+        "Italy", "Greece", "Finland", "France", "Spain", 
+        "Netherlands", "Belgium", "Austria", "Czech Republic", 
+        "Slovakia", "Croatia"
+    ],
     index=0
 )
 dest_code = destination_country[:2].upper()
@@ -265,7 +319,6 @@ with tab3:
     include_site_crane = st.checkbox("Include Site Crane & Unloading", value=True)
     site_crane_val = st.number_input(f"Total Crane & Unloading Cost ({curr_code}):", min_value=0.0, value=15000.0 * dr_mult, step=1000.0) if include_site_crane else 0.0
     site_crane_unloading = site_crane_val / usd_to_eur if is_eur_display else site_crane_val
-
 with tab4:
     st.subheader("Regulation, Sustainability & Decommissioning")
     
@@ -339,6 +392,11 @@ with tab5:
 with tab6:
     st.subheader("Infrastructure & Energy Projects Intelligence")
     st.markdown(f"**Target Market Strategy:** Active infrastructure planning and logistics intelligence for **{destination_country}**.")
+    st.markdown("""
+    * **Heavy-Lift Corridor Management:** Ensuring axle-load compliance and bridge engineering surveys across main European corridors.
+    * **Grid Connection Synchronisation:** Aligning MVS and transformer delivery schedules with high-voltage substation commissioning dates.
+    * **Customs Compliance:** Strict adherence to EU TARIC classification for UN3536 Class 9 Lithium-Ion battery shipments.
+    """)
 
 with tab7:
     st.subheader("Financial & Environmental Control Report (Carbon & Cost)")
@@ -354,8 +412,8 @@ with tab7:
         unit_freight_trans=unit_freight_trans, unit_freight_access=unit_freight_access, unit_freight_solar=unit_freight_solar,
         baf_bess=baf_bess, baf_oog=baf_oog, baf_mvs=baf_mvs, baf_trans=baf_trans, baf_access=baf_access, baf_solar=baf_solar,
         dthc_bess=dthc_bess, dthc_oog=dthc_oog, dthc_mvs=dthc_mvs, dthc_trans=dthc_trans, dthc_access=dthc_access, dthc_solar=dthc_solar,
-        drayage_bess=dray_bess, drayage_oog=dray_oog, drayage_mvs=drayage_mvs,
-        drayage_trans=dray_trans, drayage_access=dray_access, drayage_solar=drayage_solar,
+        drayage_bess=dray_bess, drayage_oog=dray_oog, drayage_mvs=dray_mvs,
+        drayage_trans=dray_trans, drayage_access=dray_access, drayage_solar=dray_solar,
         trend_multiplier=trend_multiplier, insurance_pct=insurance_pct,
         customs_duty_pct=customs_duty_pct, mvs_customs_duty_pct=mvs_customs_duty_pct,
         applied_vat=applied_vat, vat_recovery_pct=vat_recovery_pct,
@@ -418,13 +476,11 @@ with tab7:
 
     breakdown_df = pd.DataFrame(raw_breakdown_data)
     
-    # UI Display dataframe with formatted currency strings
     display_df = breakdown_df.copy()
     display_df["Amount"] = display_df["RawAmount"].apply(lambda x: f"{'€' if is_eur_display else '$'} {x:,.2f}" if x > 0 else "-")
     display_df = display_df[["Cost Item", "Basis / Qty", "Amount"]]
     st.dataframe(display_df, use_container_width=True, hide_index=True)
 
-    # Excel export with true numeric values so Excel can sum them natively
     excel_export_df = breakdown_df[["Cost Item", "Basis / Qty", "RawAmount"]].copy()
     excel_export_df.rename(columns={"RawAmount": "Amount"}, inplace=True)
 
