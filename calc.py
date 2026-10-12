@@ -1,13 +1,7 @@
 import requests
 
-
 # ===== Decommissioning (inline, no separate file needed) =====
-# Scenario presets, USD per kWh, GROSS (before salvage value).
-# Sources: EPRI 2022 (~59 $/kWh total BESS end-of-life cost, via DOE OE Peer Review 2023);
-# Entura (60-90 $/kWh from 10-15 $/kg recycling fee x ~6 kg/kWh).
-# These are published benchmarks, not supplier or recycler quotes: replace with a quote when available.
 DECOM_SCENARIOS_USD_PER_KWH = {"low": 59.0, "base": 75.0, "high": 90.0}
-
 
 def calculate_decommissioning(
     bess_count, oog_count, bess_capacity_mwh, decom_cost_per_kwh,
@@ -19,11 +13,6 @@ def calculate_decommissioning(
     discount_rate=0.0,
     residual_value_per_kwh=0.0,
 ):
-    """Returns units counted, nominal total (USD) and present value (USD).
-
-    cost_currency applies to decom_cost_per_kwh and residual_value_per_kwh.
-    usd_to_eur is EUR per 1 USD (e.g. 0.92), used only when cost_currency == "EUR".
-    """
     if not apply_decommissioning:
         return {"units": 0, "nominal_usd": 0.0, "pv_usd": 0.0}
 
@@ -32,17 +21,19 @@ def calculate_decommissioning(
     net_per_kwh = decom_cost_per_kwh - residual_value_per_kwh
     nominal_native = units * kwh_per_unit * net_per_kwh
 
-    nominal_usd = nominal_native / usd_to_eur if cost_currency == "EUR" else nominal_native
-    pv_usd = nominal_usd / ((1 + discount_rate) ** years_to_decom)
-    return {"units": units, "nominal_usd": nominal_usd, "pv_usd": pv_usd}
+    if cost_currency == "EUR":
+        nominal_usd = nominal_native / usd_to_eur if usd_to_eur > 0 else nominal_native
+    else:
+        nominal_usd = nominal_native
 
+    pv_usd = nominal_usd / ((1 + discount_rate) ** years_to_decom) if years_to_decom > 0 else nominal_usd
+    return {"units": units, "nominal_usd": nominal_usd, "pv_usd": pv_usd}
 
 def decommissioning_scenarios(
     bess_count, oog_count, bess_capacity_mwh, apply_decommissioning,
     include_oog_in_decom=False, years_to_decom=20, discount_rate=0.0,
     residual_value_per_kwh=0.0,
 ):
-    """Low/base/high totals (USD) from the preset benchmarks."""
     out = {}
     for name, cost in DECOM_SCENARIOS_USD_PER_KWH.items():
         r = calculate_decommissioning(
@@ -54,12 +45,8 @@ def decommissioning_scenarios(
         out[name] = {"cost_per_kwh_usd": cost, "nominal_usd": r["nominal_usd"], "pv_usd": r["pv_usd"]}
     return out
 
-# ===== End decommissioning =====
-
-
 
 def get_live_exchange_rate(base_currency="USD", target_currency="EUR"):
-    """Fetches live exchange rate using a free public API with fallback."""
     try:
         url = f"https://open.er-api.com/v6/latest/{base_currency}"
         response = requests.get(url, timeout=3)
@@ -70,24 +57,19 @@ def get_live_exchange_rate(base_currency="USD", target_currency="EUR"):
                 return float(rate)
     except Exception:
         pass
-
-    # Fallback default rates if offline or API fails
     fallbacks = {"EUR": 0.92, "USD": 1.0}
     return fallbacks.get(target_currency, 1.0)
 
 
 def convert_currency(amount_in_usd, from_curr="USD", to_curr="EUR", custom_rate=0.92):
-    """Converts amount between USD and EUR."""
     if "EUR" in to_curr or to_curr == "EUR":
         return amount_in_usd * custom_rate
     return amount_in_usd
 
 
 def format_currency(amount, curr_code="EUR"):
-    """Formats amount into a clean currency string."""
     symbol = "€" if "EUR" in curr_code else "$"
     return f"{symbol} {amount:,.2f}"
-
 
 
 def calculate_project_costs(
@@ -101,7 +83,7 @@ def calculate_project_costs(
     baf_bess, baf_oog, baf_mvs, baf_trans, baf_access, baf_solar,
     dthc_bess, dthc_oog, dthc_mvs, dthc_trans, dthc_access, dthc_solar,
     drayage_bess, drayage_oog, drayage_mvs, drayage_trans, drayage_access, drayage_solar,
-    trend_multiplier, insurance_pct, customs_duty_pct, applied_vat, vat_recovery_pct,
+    trend_multiplier, insurance_pct, customs_duty_pct, mvs_customs_duty_pct, applied_vat, vat_recovery_pct,
     vat_paid_by_supplier, incoterm_code, dest_country_code,
     local_regulatory_permits, mot_total_approval_cost, include_regulatory, include_mot_approval,
     site_crane_unloading, include_site_crane,
@@ -109,21 +91,21 @@ def calculate_project_costs(
     requires_heavy_lift, heavy_lift_survey_cost,
     actual_port_days, free_days, demurrage_daily_rate, use_external_storage, ext_storage_days, ext_storage_daily_rate, include_delay_scenario,
     bess_capacity_mwh, decom_cost_per_kwh,
-    # --- decommissioning params (defaults keep existing calls working) ---
     include_oog_in_decom=False,
     decom_cost_currency="USD",
-    decom_scenario=None,            # "low" / "base" / "high" overrides decom_cost_per_kwh (USD presets)
+    decom_scenario=None,
     usd_to_eur=0.92,
     years_to_decom=20,
     decom_discount_rate=0.0,
     decom_residual_per_kwh=0.0,
     apply_decommissioning=None,
+    contingency_pct=5.0,
 ):
     total_containers_project = max(1, bess_count + oog_count + mvs_count + transformer_count + access_count + solar_count)
 
     total_exw_project = (
-        (bess_count * bess_exw) + (oog_count * oog_exw) +
-        (mvs_count * mvs_exw) + (transformer_count * transformer_exw) +
+        (bess_count * bess_exw) + (oog_count * oog_exw) + 
+        (mvs_count * mvs_exw) + (transformer_count * transformer_exw) + 
         (access_count * access_exw) + (solar_count * solar_exw)
     )
 
@@ -163,13 +145,20 @@ def calculate_project_costs(
     cif_valuation_base = trended_exw + china_inland_drayage + china_origin_thc + total_ocean_freight
     insurance_total_usd = cif_valuation_base * (insurance_pct / 100.0)
 
+    # Separate Duty calculation for non-solar equipment vs MVS/Transformers
     total_solar_exw = solar_count * solar_exw * trend_multiplier
-    non_solar_exw = trended_exw - total_solar_exw
-    customs_valuation_base_usd = cif_valuation_base + insurance_total_usd
-    non_solar_ratio = (non_solar_exw / trended_exw) if trended_exw > 0 else 1.0
+    total_mvs_trans_exw = ((mvs_count * mvs_exw) + (transformer_count * transformer_exw)) * trend_multiplier
+    general_non_solar_exw = trended_exw - total_solar_exw - total_mvs_trans_exw
 
-    customs_duty_usd = (customs_valuation_base_usd * non_solar_ratio) * (customs_duty_pct / 100.0)
-    destination_thc_total = total_destination_thc
+    customs_valuation_base_usd = cif_valuation_base + insurance_total_usd
+    
+    general_ratio = (general_non_solar_exw / trended_exw) if trended_exw > 0 else 0.0
+    mvs_trans_ratio = (total_mvs_trans_exw / trended_exw) if trended_exw > 0 else 0.0
+
+    customs_duty_usd = (customs_valuation_base_usd * general_ratio * (customs_duty_pct / 100.0)) + \
+                       (customs_valuation_base_usd * mvs_trans_ratio * (mvs_customs_duty_pct / 100.0))
+
+    destination_thc_total = total_destination_thc  
 
     is_european_dest = (dest_country_code != "IL")
     if is_european_dest:
@@ -191,7 +180,6 @@ def calculate_project_costs(
     external_storage_total_usd = (float(ext_storage_days) * ext_storage_daily_rate * float(total_containers_project)) if use_external_storage else 0.0
     effective_delay_cost = (demurrage_total_usd + external_storage_total_usd) if include_delay_scenario else 0.0
 
-    # Decommissioning / end-of-life provision (not applied in Israel by default)
     if apply_decommissioning is None:
         apply_decommissioning = (dest_country_code != "IL")
 
@@ -214,29 +202,29 @@ def calculate_project_costs(
         include_oog_in_decom=include_oog_in_decom, years_to_decom=years_to_decom,
         discount_rate=decom_discount_rate, residual_value_per_kwh=decom_residual_per_kwh,
     )
-    # EPR recycling and decommissioning may both include recycling cost: flag possible double counting.
     decom_epr_overlap_warning = bool(apply_decommissioning and epr_recycling_total_usd > 0 and decommissioning_total_usd > 0)
 
     project_delivery_cost = (
-        trended_exw +
-        china_inland_drayage +
-        china_origin_thc +
-        total_ocean_freight +
-        insurance_total_usd +
-        customs_duty_usd +
-        destination_thc_total +
-        inland_drayage_total_usd +
-        active_site_crane +
-        active_regulatory_permits +
-        epr_recycling_total_usd +
-        battery_passport_total_usd +
-        active_heavy_lift +
+        trended_exw + 
+        china_inland_drayage + 
+        china_origin_thc + 
+        total_ocean_freight + 
+        insurance_total_usd + 
+        customs_duty_usd + 
+        destination_thc_total + 
+        inland_drayage_total_usd + 
+        active_site_crane + 
+        active_regulatory_permits + 
+        epr_recycling_total_usd + 
+        battery_passport_total_usd + 
+        active_heavy_lift + 
         effective_delay_cost
     )
 
     supplier_commercial_price_options = {
         "EXW": trended_exw,
         "FOB": trended_exw + china_inland_drayage + china_origin_thc,
+        "CFR": trended_exw + china_inland_drayage + china_origin_thc + total_ocean_freight,
         "CIF": trended_exw + china_inland_drayage + china_origin_thc + total_ocean_freight + insurance_total_usd,
         "DAP": trended_exw + china_inland_drayage + china_origin_thc + total_ocean_freight + insurance_total_usd + destination_thc_total + inland_drayage_total_usd,
         "DDP": trended_exw + china_inland_drayage + china_origin_thc + total_ocean_freight + insurance_total_usd + customs_duty_usd + destination_thc_total + inland_drayage_total_usd + supplier_vat_component,
@@ -250,12 +238,9 @@ def calculate_project_costs(
     effective_non_recoverable_vat = 0.0 if (vat_paid_by_supplier and is_ddp) else (vat_total_usd - recoverable_vat)
 
     buyer_supply_chain_total = project_delivery_cost
-    ddp_contingency_pct = 5.0
-    contingency_usd = buyer_supply_chain_total * (ddp_contingency_pct / 100.0)
+    contingency_usd = buyer_supply_chain_total * (contingency_pct / 100.0)
     total_landed_cost_ex_vat = buyer_supply_chain_total + contingency_usd
-
-    # Economic cost includes the (discounted) decommissioning provision;
-    # operational cash requirement does not (future provision).
+    
     economic_cost_ex_vat = total_landed_cost_ex_vat + effective_non_recoverable_vat + decommissioning_pv_usd
     total_cash_requirement_incl_vat = total_landed_cost_ex_vat + effective_vat_cash
 
@@ -288,5 +273,5 @@ def calculate_project_costs(
         "economic_cost_ex_vat": economic_cost_ex_vat,
         "total_cash_requirement_incl_vat": total_cash_requirement_incl_vat,
         "demurrage_total_usd": demurrage_total_usd if include_delay_scenario else 0.0,
-        "external_storage_total_usd": external_storage_total_usd if include_delay_scenario else 0.0,
+        "external_storage_total_usd": external_storage_total_usd if include_delay_scenario else 0.0
     }
