@@ -1,10 +1,61 @@
 import requests
 
-from decommissioning import (
-    calculate_decommissioning,
-    decommissioning_scenarios,
-    DECOM_SCENARIOS_USD_PER_KWH,
-)
+
+# ===== Decommissioning (inline, no separate file needed) =====
+# Scenario presets, USD per kWh, GROSS (before salvage value).
+# Sources: EPRI 2022 (~59 $/kWh total BESS end-of-life cost, via DOE OE Peer Review 2023);
+# Entura (60-90 $/kWh from 10-15 $/kg recycling fee x ~6 kg/kWh).
+# These are published benchmarks, not supplier or recycler quotes: replace with a quote when available.
+DECOM_SCENARIOS_USD_PER_KWH = {"low": 59.0, "base": 75.0, "high": 90.0}
+
+
+def calculate_decommissioning(
+    bess_count, oog_count, bess_capacity_mwh, decom_cost_per_kwh,
+    apply_decommissioning,
+    include_oog_in_decom=False,
+    cost_currency="USD",
+    usd_to_eur=0.92,
+    years_to_decom=20,
+    discount_rate=0.0,
+    residual_value_per_kwh=0.0,
+):
+    """Returns units counted, nominal total (USD) and present value (USD).
+
+    cost_currency applies to decom_cost_per_kwh and residual_value_per_kwh.
+    usd_to_eur is EUR per 1 USD (e.g. 0.92), used only when cost_currency == "EUR".
+    """
+    if not apply_decommissioning:
+        return {"units": 0, "nominal_usd": 0.0, "pv_usd": 0.0}
+
+    units = bess_count + (oog_count if include_oog_in_decom else 0)
+    kwh_per_unit = bess_capacity_mwh * 1000.0
+    net_per_kwh = decom_cost_per_kwh - residual_value_per_kwh
+    nominal_native = units * kwh_per_unit * net_per_kwh
+
+    nominal_usd = nominal_native / usd_to_eur if cost_currency == "EUR" else nominal_native
+    pv_usd = nominal_usd / ((1 + discount_rate) ** years_to_decom)
+    return {"units": units, "nominal_usd": nominal_usd, "pv_usd": pv_usd}
+
+
+def decommissioning_scenarios(
+    bess_count, oog_count, bess_capacity_mwh, apply_decommissioning,
+    include_oog_in_decom=False, years_to_decom=20, discount_rate=0.0,
+    residual_value_per_kwh=0.0,
+):
+    """Low/base/high totals (USD) from the preset benchmarks."""
+    out = {}
+    for name, cost in DECOM_SCENARIOS_USD_PER_KWH.items():
+        r = calculate_decommissioning(
+            bess_count, oog_count, bess_capacity_mwh, cost, apply_decommissioning,
+            include_oog_in_decom=include_oog_in_decom, cost_currency="USD",
+            years_to_decom=years_to_decom, discount_rate=discount_rate,
+            residual_value_per_kwh=residual_value_per_kwh,
+        )
+        out[name] = {"cost_per_kwh_usd": cost, "nominal_usd": r["nominal_usd"], "pv_usd": r["pv_usd"]}
+    return out
+
+# ===== End decommissioning =====
+
 
 
 def get_live_exchange_rate(base_currency="USD", target_currency="EUR"):
