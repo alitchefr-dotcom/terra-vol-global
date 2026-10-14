@@ -391,8 +391,9 @@ with tab4:
     st.markdown("#### VAT & Contingency Settings")
     vc1, vc2 = st.columns(2)
     with vc1:
-        applied_vat = st.number_input("Import VAT Rate (%):", min_value=0.0, value=19.0, step=0.5)
-        vat_recovery_pct = st.number_input("VAT Recovery Rate (%):", min_value=0.0, value=100.0, step=5.0)
+    default_vat = EUROPEAN_VAT_RATES.get(destination_country, 19.0)
+    applied_vat = st.number_input("Import VAT Rate (%):", min_value=0.0, value=default_vat, step=0.5)
+    vat_recovery_pct = st.number_input("VAT Recovery Rate (%):", min_value=0.0, value=100.0, step=5.0)
     with vc2:
         vat_paid_by_supplier = st.checkbox("Import VAT Paid Directly by Supplier", value=False)
         contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
