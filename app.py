@@ -56,6 +56,25 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+# --- EUROPEAN VAT RATES DICTIONARY ---
+EUROPEAN_VAT_RATES = {
+    "Romania": 19.0,
+    "Poland": 23.0,
+    "Hungary": 27.0,
+    "Bulgaria": 20.0,
+    "Germany": 19.0,
+    "Italy": 22.0,
+    "Greece": 24.0,
+    "Finland": 25.5,
+    "France": 20.0,
+    "Spain": 21.0,
+    "Netherlands": 21.0,
+    "Belgium": 21.0,
+    "Austria": 20.0,
+    "Czech Republic": 21.0,
+    "Slovakia": 20.0,
+    "Croatia": 25.0
+}
 
 if "usd_eur" not in st.session_state:
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
@@ -104,14 +123,10 @@ st.sidebar.button("Refresh Live Rates", on_click=refresh_rate)
 
 destination_country = st.sidebar.selectbox(
     "Project Destination Country:",
-    options=[
-        "Romania", "Poland", "Hungary", "Bulgaria", "Germany", 
-        "Italy", "Greece", "Finland", "France", "Spain", 
-        "Netherlands", "Belgium", "Austria", "Czech Republic", 
-        "Slovakia", "Croatia"
-    ],
+    options=list(EUROPEAN_VAT_RATES.keys()),
     index=0
 )
+
 dest_code = destination_country[:2].upper()
 
 all_european_ports = [
