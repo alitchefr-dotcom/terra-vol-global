@@ -502,7 +502,7 @@ with tab4:
         vat_paid_by_supplier = st.checkbox("Import VAT Paid Directly by Supplier", value=False)
         contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
 
-wwith tab5:
+with tab5:
     st.subheader("🧭 Smart Multi-Option Port-to-Door Routing Agent")
     
     # Professional routing matrix based on public energy infrastructure hubs (Generic & Verified)
