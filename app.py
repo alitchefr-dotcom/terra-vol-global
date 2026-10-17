@@ -530,9 +530,9 @@ with tab5:
                 routing_results.append({
                     "Origin Port / Gateway": origin_port,
                     "Destination Site": dest_name,
-                    "Total Transit (Days)": details["transit_days"],
-                    "Trucking Distance to Site (km)": details["distance_km"],
-                    "Base Trucking Cost (€)": details["base_trucking_cost"],
+                    "Total Transit (Days)": details.get("transit_days", 0),
+                    "Trucking Distance (km)": details.get("distance_km", 0),
+                    "Base Trucking Cost (€)": details.get("base_trucking_cost", 0),
                     "Status": "Active & Verified"
                 })
 
@@ -542,7 +542,6 @@ with tab5:
         st.success("Agent scanned all sea basins and presented all possible origin ports for this destination.")
     else:
         st.info(f"No direct routes found for {selected_destination} in the current network matrix.")
-
 
 with tab6:
     st.subheader("Infrastructure & Energy Projects Intelligence")
