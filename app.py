@@ -189,11 +189,11 @@ with tab1:
     
     col_exw1, col_exw2 = st.columns(2)
     with col_exw1:
-        bess_exw_input = st.number_input(f"EXW Cost per BESS Container ({curr_code}):", min_value=0, value=300000, step=5000) if bess_count > 0 else 0
-        mvs_exw_input = st.number_input(f"EXW Cost per MVS Unit ({curr_code}):", min_value=0, value=120000, step=5000) if mvs_count > 0 else 0
-        transformer_exw_input = st.number_input(f"EXW Cost per Transformer ({curr_code}):", min_value=0, value=80000, step=5000) if transformer_count > 0 else 0
+        bess_exw_input = st.number_input(f"EXW Cost per BESS Container ({curr_code}):", min_value=0, value=400000, step=5000) if bess_count > 0 else 0
+        mvs_exw_input = st.number_input(f"EXW Cost per MVS Unit ({curr_code}):", min_value=0, value=250000, step=5000) if mvs_count > 0 else 0
+        transformer_exw_input = st.number_input(f"EXW Cost per Transformer ({curr_code}):", min_value=0, value=120000, step=5000) if transformer_count > 0 else 0
     with col_exw2:
-        oog_exw_input = st.number_input(f"EXW Cost per OOG Unit ({curr_code}):", min_value=0, value=150000, step=5000) if oog_count > 0 else 0
+        oog_exw_input = st.number_input(f"EXW Cost per OOG Unit ({curr_code}):", min_value=0, value=300000, step=5000) if oog_count > 0 else 0
         access_exw_input = st.number_input(f"EXW Cost per Accessory Unit ({curr_code}):", min_value=0, value=30000, step=1000) if access_count > 0 else 0
         solar_exw_input = st.number_input(f"EXW Cost per Solar Unit ({curr_code}):", min_value=0, value=50000, step=1000) if solar_count > 0 else 0
 
@@ -229,14 +229,14 @@ with tab2:
     f_mult = usd_to_eur if is_eur_display else 1.0
     cf1, cf2, cf3 = st.columns(3)
     with cf1:
-        f_bess = st.number_input(f"BESS Freight ({curr_code}):", min_value=0, value=int(15000 * f_mult), step=500)
+        f_bess = st.number_input(f"BESS Freight ({curr_code}):", min_value=0, value=int(18000 * f_mult), step=500)
         f_oog = st.number_input(f"OOG Freight ({curr_code}):", min_value=0, value=int(18000 * f_mult), step=500)
     with cf2:
-        f_mvs = st.number_input(f"MVS Freight ({curr_code}):", min_value=0, value=int(15000 * f_mult), step=500)
-        f_trans = st.number_input(f"Transformer Freight ({curr_code}):", min_value=0, value=int(15000 * f_mult), step=500)
+        f_mvs = st.number_input(f"MVS Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
+        f_trans = st.number_input(f"Transformer Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
     with cf3:
-        f_access = st.number_input(f"Accessory Freight ({curr_code}):", min_value=0, value=int(10000 * f_mult), step=500)
-        f_solar = st.number_input(f"Solar PV Freight ({curr_code}):", min_value=0, value=int(10000 * f_mult), step=500)
+        f_access = st.number_input(f"Accessory Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
+        f_solar = st.number_input(f"Solar PV Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
 
     unit_freight_bess = f_bess / usd_to_eur if is_eur_display else f_bess
     unit_freight_oog = f_oog / usd_to_eur if is_eur_display else f_oog
@@ -268,14 +268,14 @@ with tab2:
     thc_mult = f_mult
     ct1, ct2, ct3 = st.columns(3)
     with ct1:
-        dthc_bess = st.number_input(f"BESS Destination THC ({curr_code}):", min_value=0.0, value=800.0 * thc_mult, step=50.0)
-        dthc_oog = st.number_input(f"OOG Destination THC ({curr_code}):", min_value=0.0, value=1200.0 * thc_mult, step=50.0)
+        dthc_bess = st.number_input(f"BESS Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_oog = st.number_input(f"OOG Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
     with ct2:
-        dthc_mvs = st.number_input(f"MVS Destination THC ({curr_code}):", min_value=0.0, value=800.0 * thc_mult, step=50.0)
-        dthc_trans = st.number_input(f"Transformer THC ({curr_code}):", min_value=0.0, value=800.0 * thc_mult, step=50.0)
+        dthc_mvs = st.number_input(f"MVS Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_trans = st.number_input(f"Transformer THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
     with ct3:
-        dthc_access = st.number_input(f"Accessory THC ({curr_code}):", min_value=0.0, value=600.0 * thc_mult, step=50.0)
-        dthc_solar = st.number_input(f"Solar PV THC ({curr_code}):", min_value=0.0, value=600.0 * thc_mult, step=50.0)
+        dthc_access = st.number_input(f"Accessory THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_solar = st.number_input(f"Solar PV THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
 
     if is_eur_display:
         dthc_bess /= usd_to_eur; dthc_oog /= usd_to_eur; dthc_mvs /= usd_to_eur
