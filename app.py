@@ -576,6 +576,27 @@ with tab7:
         file_name=f"Terra_Vol_Landed_Cost_Report_{dest_code}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+st.markdown("---")
+st.markdown("### Port-to-Door Smart Routing")
 
+col_route1, col_route2 = st.columns(2)
+with col_route1:
+    selected_port = st.selectbox("Select Origin Port:", list(LOGISTICS_NETWORK.keys()))
+with col_route2:
+    available_destinations = list(LOGISTICS_NETWORK[selected_port]["destinations"].keys())
+    selected_dest = st.selectbox("Select Final Destination:", available_destinations)
+
+# Retrieve route details from the matrix
+route_info = LOGISTICS_NETWORK[selected_port]["destinations"][selected_dest]
+distance_km = route_info["distance_km"]
+base_trucking_cost = route_info["base_trucking_cost"]
+transit_days = route_info["transit_days"]
+
+# Display route summary metrics
+st.success(f"**Route Summary:** {selected_port} to {selected_dest}")
+col_m1, col_m2, col_m3 = st.columns(3)
+col_m1.metric("Inland Distance", f"{distance_km} km")
+col_m2.metric("Inland Transit Time", f"{transit_days} Days")
+col_m3.metric("Base Trucking Cost", f"{base_trucking_cost} USD")
 st.markdown("---")
 st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")
