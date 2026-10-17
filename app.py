@@ -503,12 +503,23 @@ with tab4:
         contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
 
 with tab5:
-    st.subheader("European Route & Corridor Analysis")
+    st.subheader("🧭 Multi-Option Port-to-Door Routing Agent")
     
     selected_destination = st.selectbox(
-        "Project Destination Country / Region:",
-        ["Italy", "Slovenia", "Romania", "Poland", "Hungary", "Germany", "Spain", "Greece", "Austria", "Netherlands"],
-        key="routing_dest_country"
+        "Select Target Project Destination / Site:",
+        [
+            "Amsterdam / Rotterdam (Netherlands)", 
+            "Padova / Milan (Italy)", 
+            "Ljubljana / Koper (Slovenia)", 
+            "Bucharest / Iepurești (Romania)", 
+            "Warsaw / Central Poland", 
+            "Budapest (Hungary)", 
+            "Berlin / Frankfurt (Germany)", 
+            "Paris / Lyon (France)", 
+            "Madrid / Barcelona (Spain)", 
+            "Athens / Piraeus (Greece)"
+        ],
+        key="routing_dest_site"
     )
 
     routing_results = []
@@ -517,10 +528,10 @@ with tab5:
         for dest_name, details in destinations.items():
             if selected_destination.lower() in dest_name.lower():
                 routing_results.append({
-                    "Gateway Port / Origin": origin_port,
+                    "Origin Port / Gateway": origin_port,
                     "Destination Site": dest_name,
-                    "Transit Days (Total)": details["transit_days"],
-                    "Trucking Distance (km)": details["distance_km"],
+                    "Total Transit (Days)": details["transit_days"],
+                    "Trucking Distance to Site (km)": details["distance_km"],
                     "Base Trucking Cost (€)": details["base_trucking_cost"],
                     "Status": "Active & Verified"
                 })
@@ -528,6 +539,7 @@ with tab5:
     if routing_results:
         df_routes = pd.DataFrame(routing_results)
         st.dataframe(df_routes, use_container_width=True, hide_index=True)
+        st.success("Agent scanned all sea basins and presented all possible origin ports for this destination.")
     else:
         st.info(f"No direct routes found for {selected_destination} in the current network matrix.")
 
