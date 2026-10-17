@@ -522,6 +522,15 @@ st.subheader("European Route & Corridor Analysis")
         key="routing_dest_country"
     )
 
+ with tab5:
+    st.subheader("European Route & Corridor Analysis")
+    
+    selected_destination = st.selectbox(
+        "Project Destination Country / Site:",
+        ["Romania", "Bulgaria", "Poland", "Hungary", "Germany", "Italy", "Spain", "France", "Netherlands", "Belgium", "Austria", "Czech Republic", "Slovakia", "Croatia", "Finland", "Greece"],
+        key="routing_dest_country"
+    )
+
     routing_results = []
     for origin_port, port_data in LOGISTICS_NETWORK.items():
         destinations = port_data.get("destinations", {})
