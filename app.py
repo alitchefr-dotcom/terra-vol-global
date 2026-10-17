@@ -166,8 +166,8 @@ LOGISTICS_NETWORK = {
         "destinations": {
             "Paris (France)": {"distance_km": 200, "transit_days": 2, "base_trucking_cost": 2200}
         }
-    }
-}
+   
+
     
     # 2. Aegean Sea & Saronic Gulf Ports (Greece)
     "Piraeus (Greece)": {
