@@ -486,7 +486,6 @@ with tab4:
         vat_paid_by_supplier = st.checkbox("Import VAT Paid Directly by Supplier", value=False)
         contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
 
-
 with tab5:
     st.subheader("European Route & Corridor Analysis")
     
@@ -516,25 +515,7 @@ with tab5:
     else:
         st.info(f"No direct routes found for {selected_destination} in the current network matrix.")
 
-    routing_results = []
-    for origin_port, port_data in LOGISTICS_NETWORK.items():
-        destinations = port_data.get("destinations", {})
-        for dest_name, details in destinations.items():
-            if selected_destination.lower() in dest_name.lower():
-                routing_results.append({
-                    "Gateway Port / Origin": origin_port,
-                    "Destination": dest_name,
-                    "Transit Days (Ocean)": details["transit_days"],
-                    "Trucking Distance (km)": details["distance_km"],
-                    "Base Trucking Cost (€)": details["base_trucking_cost"],
-                    "Status": "Active & Verified"
-                })
 
-    if routing_results:
-        df_routes = pd.DataFrame(routing_results)
-        st.dataframe(df_routes, use_container_width=True, hide_index=True)
-    else:
-        st.info(f"No direct routes found for {selected_destination} in the current network matrix.")
 with tab6:
     st.subheader("Infrastructure & Energy Projects Intelligence")
     st.markdown(f"**Target Market Strategy:** Active infrastructure planning and logistics intelligence for **{destination_country}**.")
