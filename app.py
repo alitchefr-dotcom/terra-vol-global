@@ -208,7 +208,7 @@ transformer_exw = transformer_exw_input * to_usd_factor
 access_exw = access_exw_input * to_usd_factor
 solar_exw = solar_exw_input * to_usd_factor
 
-    bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=0.5, value=4.0, step=0.5)
+bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=0.5, value=4.0, step=0.5)
 with tab2:
     st.subheader("Ocean Freight, BAF & Destination THC")
     
