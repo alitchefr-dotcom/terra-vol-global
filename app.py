@@ -577,26 +577,56 @@ with tab7:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 st.markdown("---")
-st.markdown("### Port-to-Door Smart Routing")
 
-col_route1, col_route2 = st.columns(2)
-with col_route1:
-    selected_port = st.selectbox("Select Origin Port:", list(LOGISTICS_NETWORK.keys()))
-with col_route2:
-    available_destinations = list(LOGISTICS_NETWORK[selected_port]["destinations"].keys())
-    selected_dest = st.selectbox("Select Final Destination:", available_destinations)
+st.markdown("### 🤖 Multi-Option Port-to-Door Routing Agent")
 
-# Retrieve route details from the matrix
-route_info = LOGISTICS_NETWORK[selected_port]["destinations"][selected_dest]
-distance_km = route_info["distance_km"]
-base_trucking_cost = route_info["base_trucking_cost"]
-transit_days = route_info["transit_days"]
+# Collect all unique destination project sites across all ports in the matrix
+all_destinations = sorted(list(set(
+    dest 
+    for port_data in LOGISTICS_NETWORK.values() 
+    for dest in port_data["destinations"].keys()
+)))
 
-# Display route summary metrics
-st.success(f"**Route Summary:** {selected_port} to {selected_dest}")
-col_m1, col_m2, col_m3 = st.columns(3)
-col_m1.metric("Inland Distance", f"{distance_km} km")
-col_m2.metric("Inland Transit Time", f"{transit_days} Days")
-col_m3.metric("Base Trucking Cost", f"{base_trucking_cost} USD")
+selected_target_dest = st.selectbox("Select Target Project Destination / Site:", all_destinations)
+
+st.markdown(f"#### Available Routing Alternatives for: **{selected_target_dest}**")
+
+# Scan all ports and find which ones can reach this destination
+routes_found = []
+for port_name, port_data in LOGISTICS_NETWORK.items():
+    if selected_target_dest in port_data["destinations"]:
+        route_info = port_data["destinations"][selected_target_dest]
+        routes_found.append({
+            "Origin Port": port_name,
+            "Destination": selected_target_dest,
+            "Inland Distance (km)": route_info["distance_km"],
+            "Inland Transit (Days)": route_info["transit_days"],
+            "Base Trucking Cost (USD)": route_info["base_trucking_cost"]
+        })
+
+if routes_found:
+    routes_df = pd.DataFrame(routes_found)
+    # Sort options by cheapest trucking cost first
+    routes_df = routes_df.sort_values(by="Base Trucking Cost (USD)")
+    
+    st.dataframe(routes_df, use_container_width=True, hide_index=True)
+    st.success("💡 Agent scanned all sea basins and presented all possible origin ports for this destination, sorted by cost-effectiveness.")
+else:
+    st.warning("No direct routes found for this destination in the current network matrix.")
+            "Destination": selected_target_dest,
+            "Inland Distance (km)": route_info["distance_km"],
+            "Inland Transit (Days)": route_info["transit_days"],
+            "Base Trucking Cost (USD)": route_info["base_trucking_cost"]
+        })
+
+if routes_found:
+    routes_df = pd.DataFrame(routes_found)
+    # Sort options by cheapest trucking cost first
+    routes_df = routes_df.sort_values(by="Base Trucking Cost (USD)")
+    
+    st.dataframe(routes_df, use_container_width=True, hide_index=True)
+    st.success("💡 הסוכן סרק את כל אגני הים והציג את כל נמלי המוצא האפשריים ליעד זה, מסודרים מהמשתלם ביותר.")
+else:
+    st.warning("No direct routes found for this destination in the current network matrix.")
 st.markdown("---")
 st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")
