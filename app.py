@@ -503,45 +503,97 @@ with tab4:
         contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
 
 with tab5:
-    st.subheader("🧭 Multi-Option Port-to-Door Routing Agent")
+    st.subheader("🧭 Smart Multi-Option Port-to-Door Routing Agent")
     
-    selected_destination = st.selectbox(
-        "Select Target Project Destination / Site:",
-        [
-            "Amsterdam / Rotterdam (Netherlands)", 
-            "Padova / Milan (Italy)", 
-            "Ljubljana / Koper (Slovenia)", 
-            "Bucharest / Iepurești (Romania)", 
-            "Warsaw / Central Poland", 
-            "Budapest (Hungary)", 
-            "Berlin / Frankfurt (Germany)", 
-            "Paris / Lyon (France)", 
-            "Madrid / Barcelona (Spain)", 
-            "Athens / Piraeus (Greece)"
-        ],
-        key="routing_dest_site"
+    # Smart routing matrix based on professional logistics expertise
+    COUNTRY_ROUTING_MATRIX = {
+        "Romania": {
+            "site_name": "Bucharest / Iepurești / Ghimpați (Romania)",
+            "gateways": [
+                {"port": "Constanta (Black Sea Hub)", "is_china_gw": True, "transit_days": 35, "dist": 280, "cost": 3600},
+                {"port": "Varna / Burgas (Black Sea Hub)", "is_china_gw": True, "transit_days": 36, "dist": 380, "cost": 4100},
+                {"port": "Koper (Adriatic Multimodal Gateway)", "is_china_gw": True, "transit_days": 38, "dist": 1100, "cost": 6500},
+                {"port": "Hamburg / Rotterdam (North Sea Gateway)", "is_china_gw": True, "transit_days": 39, "dist": 1800, "cost": 8200},
+                {"port": "Regional Short-Sea: Constanta", "is_china_gw": False, "transit_days": 3, "dist": 280, "cost": 3600}
+            ]
+        },
+        "Germany": {
+            "site_name": "Berlin / Frankfurt / Munich (Germany)",
+            "gateways": [
+                {"port": "Hamburg / Bremen (North Sea Gateway)", "is_china_gw": True, "transit_days": 36, "dist": 350, "cost": 3800},
+                {"port": "Rotterdam / Antwerp (Western Gateway)", "is_china_gw": True, "transit_days": 35, "dist": 550, "cost": 5200},
+                {"port": "Koper (Adriatic Multimodal Gateway)", "is_china_gw": True, "transit_days": 37, "dist": 850, "cost": 6800},
+                {"port": "Trieste / Venice (Mediterranean Hub)", "is_china_gw": True, "transit_days": 37, "dist": 900, "cost": 7100},
+                {"port": "Regional Short-Sea: Hamburg", "is_china_gw": False, "transit_days": 3, "dist": 290, "cost": 3100}
+            ]
+        },
+        "Italy": {
+            "site_name": "Padova / Milan / Rome (Italy)",
+            "gateways": [
+                {"port": "Genoa / Trieste / Venice (Med/Adriatic Hub)", "is_china_gw": True, "transit_days": 34, "dist": 200, "cost": 2100},
+                {"port": "Koper / Rijeka (Adriatic Gateway)", "is_china_gw": True, "transit_days": 35, "dist": 300, "cost": 3200},
+                {"port": "Rotterdam / Antwerp (Northern Corridor)", "is_china_gw": True, "transit_days": 37, "dist": 1100, "cost": 7500},
+                {"port": "Regional Short-Sea: Genoa", "is_china_gw": False, "transit_days": 2, "dist": 150, "cost": 1900}
+            ]
+        },
+        "Netherlands": {
+            "site_name": "Amsterdam / Rotterdam (Netherlands)",
+            "gateways": [
+                {"port": "Rotterdam / Antwerp (Western Europe Gateway)", "is_china_gw": True, "transit_days": 35, "dist": 60, "cost": 600},
+                {"port": "Hamburg / Bremen (North Sea Hub)", "is_china_gw": True, "transit_days": 36, "dist": 450, "cost": 4200},
+                {"port": "Koper (Adriatic Multimodal)", "is_china_gw": True, "transit_days": 38, "dist": 1300, "cost": 8900},
+                {"port": "Regional Short-Sea: Rotterdam", "is_china_gw": False, "transit_days": 1, "dist": 60, "cost": 600}
+            ]
+        }
+    }
+
+    selected_country = st.selectbox(
+        "Select Target Project Destination Country:",
+        list(COUNTRY_ROUTING_MATRIX.keys()),
+        key="smart_routing_country"
     )
 
+    country_data = COUNTRY_ROUTING_MATRIX[selected_country]
+    destination_site = country_data["site_name"]
+    
     routing_results = []
-    for origin_port, port_data in LOGISTICS_NETWORK.items():
-        destinations = port_data.get("destinations", {})
-        for dest_name, details in destinations.items():
-            if selected_destination.lower() in dest_name.lower():
+    china_ports = [
+        "Shanghai (China)", 
+        "Ningbo (China)", 
+        "Yantian / Shenzhen (China)", 
+        "Qingdao (China)", 
+        "Xingang / Tianjin (China)"
+    ]
+
+    for gw in country_data["gateways"]:
+        if gw["is_china_gw"]:
+            for china_port in china_ports:
                 routing_results.append({
-                    "Origin Port / Gateway": origin_port,
-                    "Destination Site": dest_name,
-                    "Total Transit (Days)": details.get("transit_days", 0),
-                    "Trucking Distance (km)": details.get("distance_km", 0),
-                    "Base Trucking Cost (€)": details.get("base_trucking_cost", 0),
+                    "Origin Port / Corridor": f"{china_port} via {gw['port'].split('(')[0].strip()}",
+                    "Destination Site": destination_site,
+                    "Total Transit (Days)": gw["transit_days"],
+                    "Inland Distance (km)": gw["dist"],
+                    "Base Trucking Cost (€)": gw["cost"],
+                    "Route Type": "Ocean (China) + Inland",
                     "Status": "Active & Verified"
                 })
+        else:
+            routing_results.append({
+                "Origin Port / Corridor": f"Intra-European / Feeder: {gw['port']}",
+                "Destination Site": destination_site,
+                "Total Transit (Days)": gw["transit_days"],
+                "Inland Distance (km)": gw["dist"],
+                "Base Trucking Cost (€)": gw["cost"],
+                "Route Type": "Short-Sea / Regional",
+                "Status": "Active & Verified"
+            })
 
     if routing_results:
         df_routes = pd.DataFrame(routing_results)
         st.dataframe(df_routes, use_container_width=True, hide_index=True)
-        st.success("Agent scanned all sea basins and presented all possible origin ports for this destination.")
+        st.success(f"Smart Agent successfully generated all logical maritime gateways and corridors for {selected_country}.")
     else:
-        st.info(f"No direct routes found for {selected_destination} in the current network matrix.")
+        st.info("No routing options available for this selection.")
 
 with tab6:
     st.subheader("Infrastructure & Energy Projects Intelligence")
