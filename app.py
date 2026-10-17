@@ -577,7 +577,7 @@ with tab7:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 st.markdown("---")
-
+st.markdown("---")
 st.markdown("### 🤖 Multi-Option Port-to-Door Routing Agent")
 
 # Collect all unique destination project sites across all ports in the matrix
@@ -613,20 +613,6 @@ if routes_found:
     st.success("💡 Agent scanned all sea basins and presented all possible origin ports for this destination, sorted by cost-effectiveness.")
 else:
     st.warning("No direct routes found for this destination in the current network matrix.")
-            "Destination": selected_target_dest,
-            "Inland Distance (km)": route_info["distance_km"],
-            "Inland Transit (Days)": route_info["transit_days"],
-            "Base Trucking Cost (USD)": route_info["base_trucking_cost"]
-        })
 
-if routes_found:
-    routes_df = pd.DataFrame(routes_found)
-    # Sort options by cheapest trucking cost first
-    routes_df = routes_df.sort_values(by="Base Trucking Cost (USD)")
-    
-    st.dataframe(routes_df, use_container_width=True, hide_index=True)
-    st.success("💡 הסוכן סרק את כל אגני הים והציג את כל נמלי המוצא האפשריים ליעד זה, מסודרים מהמשתלם ביותר.")
-else:
-    st.warning("No direct routes found for this destination in the current network matrix.")
 st.markdown("---")
 st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")
