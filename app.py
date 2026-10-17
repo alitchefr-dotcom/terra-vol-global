@@ -103,7 +103,7 @@ LOGISTICS_NETWORK = {
             "Athens / Piraeus (Greece)": {"distance_km": 800, "transit_days": 8, "base_trucking_cost": 7000}
         }
     },
-    "Constanta / Varna (Black Sea Hub - Romania & Bulgaria)": {
+    "Constanta / Varna (Black Sea Hub)": {
         "destinations": {
             "Iepurești / Ghimpați (Romania)": {"distance_km": 280, "transit_days": 3, "base_trucking_cost": 3600},
             "Sofia / Burgas (Bulgaria)": {"distance_km": 290, "transit_days": 3, "base_trucking_cost": 3700},
@@ -112,64 +112,51 @@ LOGISTICS_NETWORK = {
             "Zagreb (Croatia)": {"distance_km": 950, "transit_days": 10, "base_trucking_cost": 8100}
         }
     },
-    "Gdańsk / Gdynia (Baltic Gateway - Poland)": {
+    "Gdańsk / Gdynia (Baltic Gateway)": {
         "destinations": {
             "Warsaw / Central Poland": {"distance_km": 350, "transit_days": 4, "base_trucking_cost": 3500},
             "Prague (Czech Republic)": {"distance_km": 620, "transit_days": 6, "base_trucking_cost": 6100},
-            "Berlin (Germany)": {"distance_km": 500, "transit_days": 5, "base_trucking_cost": 5200},
-            "Helsinki (Finland - via feeder)": {"distance_km": 700, "transit_days": 4, "base_trucking_cost": 4800}
+            "Berlin (Germany)": {"distance_km": 500, "transit_days": 5, "base_trucking_cost": 5200}
         }
     },
-    "Hamburg / Bremen (Central Europe Hub - Germany)": {
+    "Hamburg / Bremen (Central Europe Hub)": {
         "destinations": {
             "Berlin (Germany)": {"distance_km": 290, "transit_days": 3, "base_trucking_cost": 3100},
             "Munich / Frankfurt (Germany)": {"distance_km": 550, "transit_days": 5, "base_trucking_cost": 5000},
             "Prague (Czech Republic)": {"distance_km": 350, "transit_days": 4, "base_trucking_cost": 3600},
-            "Vienna (Austria)": {"distance_km": 750, "transit_days": 8, "base_trucking_cost": 7400},
-            "Bratislava (Slovakia)": {"distance_km": 800, "transit_days": 8, "base_trucking_cost": 7800},
-            "Amsterdam (Netherlands)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4100}
+            "Vienna (Austria)": {"distance_km": 750, "transit_days": 8, "base_trucking_cost": 7400}
         }
     },
-    "Rotterdam / Antwerp (Western Europe Gateway - NL/BE)": {
+    "Rotterdam / Antwerp (Western Europe Gateway)": {
         "destinations": {
             "Amsterdam / Rotterdam (Netherlands)": {"distance_km": 60, "transit_days": 1, "base_trucking_cost": 600},
             "Brussels / Antwerp (Belgium)": {"distance_km": 90, "transit_days": 1, "base_trucking_cost": 850},
             "Paris / Lyon (France)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4900},
-            "Frankfurt / Ruhr (Germany)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4300},
-            "Vienna (Austria)": {"distance_km": 950, "transit_days": 9, "base_trucking_cost": 8800}
+            "Frankfurt / Ruhr (Germany)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4300}
         }
     },
-    "Genoa / Trieste / Venice (Mediterranean/Alpine Hub - Italy)": {
+    "Genoa / Trieste / Venice (Mediterranean Hub)": {
         "destinations": {
             "Milan / Turin (Italy)": {"distance_km": 150, "transit_days": 2, "base_trucking_cost": 1900},
             "Rome / Naples (Italy)": {"distance_km": 500, "transit_days": 5, "base_trucking_cost": 5100},
             "Vienna (Austria)": {"distance_km": 520, "transit_days": 5, "base_trucking_cost": 5300},
             "Budapest (Hungary)": {"distance_km": 700, "transit_days": 7, "base_trucking_cost": 6400},
-            "Zagreb (Croatia)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4100},
-            "Bratislava (Slovakia)": {"distance_km": 680, "transit_days": 7, "base_trucking_cost": 6800}
+            "Zagreb (Croatia)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4100}
         }
     },
-    "Valencia / Barcelona (Iberian Gateway - Spain)": {
+    "Valencia / Barcelona (Iberian Gateway)": {
         "destinations": {
             "Madrid (Spain)": {"distance_km": 350, "transit_days": 4, "base_trucking_cost": 3800},
             "Seville / Malaga (Spain)": {"distance_km": 550, "transit_days": 6, "base_trucking_cost": 5600},
-            "Zaragoza (Spain)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3200},
-            "Paris (France)": {"distance_km": 1050, "transit_days": 11, "base_trucking_cost": 9500}
+            "Zaragoza (Spain)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3200}
         }
     },
-    "Piraeus / Thessaloniki (Balkan & Eastern Med Gateway - Greece)": {
+    "Piraeus / Thessaloniki (Balkan & Med Gateway)": {
         "destinations": {
             "Athens / Attica (Greece)": {"distance_km": 40, "transit_days": 1, "base_trucking_cost": 600},
             "Sofia / Burgas (Bulgaria)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4500},
             "Skopje (North Macedonia)": {"distance_km": 500, "transit_days": 5, "base_trucking_cost": 4800},
             "Bucharest (Romania)": {"distance_km": 750, "transit_days": 7, "base_trucking_cost": 6800}
-        }
-    },
-    "Helsinki / Baltic Sea Hub (Finland)": {
-        "destinations": {
-            "Helsinki / Espoo (Finland)": {"distance_km": 50, "transit_days": 1, "base_trucking_cost": 700},
-            "Tampere / Turku (Finland)": {"distance_km": 160, "transit_days": 2, "base_trucking_cost": 1800},
-            "Warsaw (Poland - via Baltic route)": {"distance_km": 900, "transit_days": 7, "base_trucking_cost": 8500}
         }
     }
 }
