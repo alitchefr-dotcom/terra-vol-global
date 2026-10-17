@@ -170,7 +170,7 @@ LOGISTICS_NETWORK = {
 }
     
     # 2. Aegean Sea & Saronic Gulf Ports (Greece)
-   "Piraeus (Greece)": {
+    "Piraeus (Greece)": {
         "destinations": {
             "Greece (Local - Athens / Larissa)": {"distance_km": 350, "base_trucking_cost": 2800, "transit_days": 1},
             "Bulgaria (Sofia)": {"distance_km": 550, "base_trucking_cost": 4500, "transit_days": 2},
