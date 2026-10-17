@@ -75,7 +75,70 @@ EUROPEAN_VAT_RATES = {
     "Slovakia": 20.0,
     "Croatia": 25.0
 }
-
+# Comprehensive Logistics Network Matrix for Europe, Aegean, Saronic, Black Sea & Adriatic
+LOGISTICS_NETWORK = {
+    # 1. Black Sea Ports
+    "Constanta (Romania)": {
+        "destinations": {
+            "Romania (Local - Bucharest / Giurgiu)": {"distance_km": 300, "base_trucking_cost": 2500, "transit_days": 1},
+            "Romania (Project Site - Iepurești / Ghimpați)": {"distance_km": 350, "base_trucking_cost": 3000, "transit_days": 1},
+            "Bulgaria (Sofia)": {"distance_km": 400, "base_trucking_cost": 3500, "transit_days": 2},
+            "Hungary (Budapest)": {"distance_km": 850, "base_trucking_cost": 6800, "transit_days": 3},
+            "Moldova (Chisinau)": {"distance_km": 450, "base_trucking_cost": 4000, "transit_days": 2}
+        }
+    },
+    "Varna / Burgas (Bulgaria)": {
+        "destinations": {
+            "Bulgaria (Local - Sofia)": {"distance_km": 380, "base_trucking_cost": 3200, "transit_days": 1},
+            "Romania (Bucharest)": {"distance_km": 280, "base_trucking_cost": 2800, "transit_days": 1}
+        }
+    },
+    
+    # 2. Aegean Sea & Saronic Gulf Ports (Greece)
+    "Piraeus (Greece)": {
+        "destinations": {
+            "Greece (Local - Athens / Larissa)": {"distance_km": 350, "base_trucking_cost": 2800, "transit_days": 1},
+            "Bulgaria (Sofia)": {"distance_km": 550, "base_trucking_cost": 4500, "transit_days": 2},
+            "North Macedonia (Skopje)": {"distance_km": 500, "base_trucking_cost": 4200, "transit_days": 2}
+        }
+    },
+    "Thessaloniki (Greece)": {
+        "destinations": {
+            "Greece (Local - North)": {"distance_km": 250, "base_trucking_cost": 2200, "transit_days": 1},
+            "Bulgaria (Sofia)": {"distance_km": 300, "base_trucking_cost": 2600, "transit_days": 1},
+            "Serbia (Belgrade)": {"distance_km": 600, "base_trucking_cost": 5200, "transit_days": 2}
+        }
+    },
+    "Lavrion / Elefsis (Saronic Gulf, Greece)": {
+        "destinations": {
+            "Greece (Local Projects)": {"distance_km": 150, "base_trucking_cost": 1800, "transit_days": 1},
+            "Balkans Region": {"distance_km": 650, "base_trucking_cost": 5500, "transit_days": 3}
+        }
+    },
+    
+    # 3. Adriatic & Central Mediterranean
+    "Koper (Slovenia)": {
+        "destinations": {
+            "Hungary (Budapest)": {"distance_km": 500, "base_trucking_cost": 4500, "transit_days": 2},
+            "Austria (Vienna)": {"distance_km": 500, "base_trucking_cost": 4600, "transit_days": 2},
+            "Romania (West / Central)": {"distance_km": 1100, "base_trucking_cost": 8500, "transit_days": 4}
+        }
+    },
+    "Trieste / Venice (Italy)": {
+        "destinations": {
+            "Austria / Central Europe": {"distance_km": 600, "base_trucking_cost": 5000, "transit_days": 2},
+            "Hungary (Budapest)": {"distance_km": 700, "base_trucking_cost": 5800, "transit_days": 2}
+        }
+    },
+    
+    # 4. Northern Europe Hubs
+    "Antwerp / Rotterdam (North Europe)": {
+        "destinations": {
+            "Romania (Project Sites - e.g. Iepurești)": {"distance_km": 2100, "base_trucking_cost": 12000, "transit_days": 5},
+            "Germany (Central)": {"distance_km": 600, "base_trucking_cost": 5000, "transit_days": 2}
+        }
+    }
+}
 if "usd_eur" not in st.session_state:
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
 
