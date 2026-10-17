@@ -200,13 +200,13 @@ with col_exw2:
         access_exw_input = st.number_input(f"EXW Cost per Accessory Unit ({curr_code}):", min_value=0, value=int(30000 * disp_mult), step=1000) if access_count > 0 else 0
         solar_exw_input = st.number_input(f"EXW Cost per Solar Unit ({curr_code}):", min_value=0, value=int(50000 * disp_mult), step=1000) if solar_count > 0 else 0
 
-    to_usd_factor = (1.0 / usd_to_eur) if is_eur_display and usd_to_eur > 0 else 1.0
-    bess_exw = bess_exw_input * to_usd_factor
-    oog_exw = oog_exw_input * to_usd_factor
-    mvs_exw = mvs_exw_input * to_usd_factor
-    transformer_exw = transformer_exw_input * to_usd_factor
-    access_exw = access_exw_input * to_usd_factor
-    solar_exw = solar_exw_input * to_usd_factor
+to_usd_factor = (1.0 / usd_to_eur) if is_eur_display and usd_to_eur > 0 else 1.0
+bess_exw = bess_exw_input * to_usd_factor
+oog_exw = oog_exw_input * to_usd_factor
+mvs_exw = mvs_exw_input * to_usd_factor
+transformer_exw = transformer_exw_input * to_usd_factor
+access_exw = access_exw_input * to_usd_factor
+solar_exw = solar_exw_input * to_usd_factor
 
     bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=0.5, value=4.0, step=0.5)
 with tab2:
