@@ -10,7 +10,13 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide"
 )
-
+# --- MODE SELECTOR ---
+st.markdown("---")
+app_mode = st.radio(
+    "Select Operating Mode:",
+    ["⚡ Quick Scenario Showcase (Investor/Marketing View)", "🛠️ Advanced Manual Configuration & Routing Agent"],
+    horizontal=True
+)
 # --- CUSTOM CSS STYLING ---
 st.markdown("""
     <style>
