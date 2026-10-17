@@ -83,7 +83,7 @@ EUROPEAN_VAT_RATES = {
 }
 # Comprehensive Logistics Network Matrix for Europe, Aegean, Saronic, Black Sea & Adriatic
 LOGISTICS_NETWORK = {
-    "Shanghai / Asia (Main Gateway)": {
+    "Shanghai (China)": {
         "destinations": {
             "Bucharest / Iepurești (Romania)": {"distance_km": 320, "transit_days": 4, "base_trucking_cost": 4200},
             "Sofia (Bulgaria)": {"distance_km": 380, "transit_days": 4, "base_trucking_cost": 4100},
@@ -103,26 +103,61 @@ LOGISTICS_NETWORK = {
             "Athens / Piraeus (Greece)": {"distance_km": 800, "transit_days": 8, "base_trucking_cost": 7000}
         }
     },
+    "Ningbo (China)": {
+        "destinations": {
+            "Bucharest / Iepurești (Romania)": {"distance_km": 320, "transit_days": 4, "base_trucking_cost": 4200},
+            "Sofia (Bulgaria)": {"distance_km": 380, "transit_days": 4, "base_trucking_cost": 4100},
+            "Warsaw (Poland)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4800},
+            "Budapest (Hungary)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3900},
+            "Berlin / Frankfurt (Germany)": {"distance_km": 600, "transit_days": 6, "base_trucking_cost": 5500},
+            "Milan / Rome (Italy)": {"distance_km": 750, "transit_days": 7, "base_trucking_cost": 6200},
+            "Madrid / Barcelona (Spain)": {"distance_km": 900, "transit_days": 9, "base_trucking_cost": 7500}
+        }
+    },
+    "Yantian / Shenzhen (China)": {
+        "destinations": {
+            "Bucharest / Iepurești (Romania)": {"distance_km": 320, "transit_days": 4, "base_trucking_cost": 4200},
+            "Warsaw (Poland)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4800},
+            "Budapest (Hungary)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3900},
+            "Berlin / Frankfurt (Germany)": {"distance_km": 600, "transit_days": 6, "base_trucking_cost": 5500},
+            "Milan / Rome (Italy)": {"distance_km": 750, "transit_days": 7, "base_trucking_cost": 6200},
+            "Madrid / Barcelona (Spain)": {"distance_km": 900, "transit_days": 9, "base_trucking_cost": 7500}
+        }
+    },
+    "Qingdao (China)": {
+        "destinations": {
+            "Bucharest / Iepurești (Romania)": {"distance_km": 320, "transit_days": 4, "base_trucking_cost": 4200},
+            "Warsaw (Poland)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4800},
+            "Budapest (Hungary)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3900},
+            "Berlin / Frankfurt (Germany)": {"distance_km": 600, "transit_days": 6, "base_trucking_cost": 5500},
+            "Milan / Rome (Italy)": {"distance_km": 750, "transit_days": 7, "base_trucking_cost": 6200}
+        }
+    },
+    "Xingang / Tianjin (China)": {
+        "destinations": {
+            "Bucharest / Iepurești (Romania)": {"distance_km": 320, "transit_days": 4, "base_trucking_cost": 4200},
+            "Warsaw (Poland)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4800},
+            "Budapest (Hungary)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3900},
+            "Berlin / Frankfurt (Germany)": {"distance_km": 600, "transit_days": 6, "base_trucking_cost": 5500},
+            "Milan / Rome (Italy)": {"distance_km": 750, "transit_days": 7, "base_trucking_cost": 6200}
+        }
+    },
     "Constanta / Varna (Black Sea Hub)": {
         "destinations": {
             "Iepurești / Ghimpați (Romania)": {"distance_km": 280, "transit_days": 3, "base_trucking_cost": 3600},
             "Sofia / Burgas (Bulgaria)": {"distance_km": 290, "transit_days": 3, "base_trucking_cost": 3700},
-            "Budapest (Hungary)": {"distance_km": 850, "transit_days": 9, "base_trucking_cost": 7200},
-            "Belgrade (Serbia)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4800},
-            "Zagreb (Croatia)": {"distance_km": 950, "transit_days": 10, "base_trucking_cost": 8100}
+            "Budapest (Hungary)": {"distance_km": 850, "transit_days": 9, "base_trucking_cost": 7200}
         }
     },
     "Gdańsk / Gdynia (Baltic Gateway)": {
         "destinations": {
             "Warsaw / Central Poland": {"distance_km": 350, "transit_days": 4, "base_trucking_cost": 3500},
-            "Prague (Czech Republic)": {"distance_km": 620, "transit_days": 6, "base_trucking_cost": 6100},
-            "Berlin (Germany)": {"distance_km": 500, "transit_days": 5, "base_trucking_cost": 5200}
+            "Prague (Czech Republic)": {"distance_km": 620, "transit_days": 6, "base_trucking_cost": 6100}
         }
     },
     "Hamburg / Bremen (Central Europe Hub)": {
         "destinations": {
             "Berlin (Germany)": {"distance_km": 290, "transit_days": 3, "base_trucking_cost": 3100},
-            "Munich / Frankfurt (Germany)": {"distance_km": 550, "transit_days": 5, "base_trucking_cost": 5000},
             "Prague (Czech Republic)": {"distance_km": 350, "transit_days": 4, "base_trucking_cost": 3600},
             "Vienna (Austria)": {"distance_km": 750, "transit_days": 8, "base_trucking_cost": 7400}
         }
@@ -131,32 +166,26 @@ LOGISTICS_NETWORK = {
         "destinations": {
             "Amsterdam / Rotterdam (Netherlands)": {"distance_km": 60, "transit_days": 1, "base_trucking_cost": 600},
             "Brussels / Antwerp (Belgium)": {"distance_km": 90, "transit_days": 1, "base_trucking_cost": 850},
-            "Paris / Lyon (France)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4900},
-            "Frankfurt / Ruhr (Germany)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4300}
+            "Paris / Lyon (France)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4900}
         }
     },
     "Genoa / Trieste / Venice (Mediterranean Hub)": {
         "destinations": {
             "Milan / Turin (Italy)": {"distance_km": 150, "transit_days": 2, "base_trucking_cost": 1900},
-            "Rome / Naples (Italy)": {"distance_km": 500, "transit_days": 5, "base_trucking_cost": 5100},
             "Vienna (Austria)": {"distance_km": 520, "transit_days": 5, "base_trucking_cost": 5300},
-            "Budapest (Hungary)": {"distance_km": 700, "transit_days": 7, "base_trucking_cost": 6400},
-            "Zagreb (Croatia)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4100}
+            "Budapest (Hungary)": {"distance_km": 700, "transit_days": 7, "base_trucking_cost": 6400}
         }
     },
     "Valencia / Barcelona (Iberian Gateway)": {
         "destinations": {
             "Madrid (Spain)": {"distance_km": 350, "transit_days": 4, "base_trucking_cost": 3800},
-            "Seville / Malaga (Spain)": {"distance_km": 550, "transit_days": 6, "base_trucking_cost": 5600},
             "Zaragoza (Spain)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3200}
         }
     },
     "Piraeus / Thessaloniki (Balkan & Med Gateway)": {
         "destinations": {
             "Athens / Attica (Greece)": {"distance_km": 40, "transit_days": 1, "base_trucking_cost": 600},
-            "Sofia / Burgas (Bulgaria)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4500},
-            "Skopje (North Macedonia)": {"distance_km": 500, "transit_days": 5, "base_trucking_cost": 4800},
-            "Bucharest (Romania)": {"distance_km": 750, "transit_days": 7, "base_trucking_cost": 6800}
+            "Sofia / Burgas (Bulgaria)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4500}
         }
     }
 }
