@@ -514,15 +514,8 @@ with tab4:
         vat_paid_by_supplier = st.checkbox("Import VAT Paid Directly by Supplier", value=False)
         contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
 
-st.subheader("European Route & Corridor Analysis")
-    
-    selected_destination = st.selectbox(
-        "Project Destination Country / Site:",
-        ["Romania", "Bulgaria", "Poland", "Hungary", "Germany", "Italy", "Spain", "France", "Netherlands", "Belgium", "Austria", "Czech Republic", "Slovakia", "Croatia", "Finland", "Greece"],
-        key="routing_dest_country"
-    )
 
- with tab5:
+with tab5:
     st.subheader("European Route & Corridor Analysis")
     
     selected_destination = st.selectbox(
@@ -550,7 +543,6 @@ st.subheader("European Route & Corridor Analysis")
         st.dataframe(df_routes, use_container_width=True, hide_index=True)
     else:
         st.info(f"No direct routes found for {selected_destination} in the current network matrix.")
-
 with tab6:
     st.subheader("Infrastructure & Energy Projects Intelligence")
     st.markdown(f"**Target Market Strategy:** Active infrastructure planning and logistics intelligence for **{destination_country}**.")
