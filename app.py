@@ -503,47 +503,52 @@ with tab4:
         contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
 
 with tab5:
-    st.subheader("🧭 Smart Multi-Option Port-to-Door Routing Agent")
+    st.subheader("🧭 Multi-Option Port-to-Door Routing Agent")
     
-    # Professional routing matrix based on public energy infrastructure hubs (Generic & Verified)
+    # Value proposition explanation for the routing table
+    st.markdown("""
+    > **Module Value Proposition:** This routing agent scans international sea basins and European gateway hubs to present **complete port-to-door supply chain alternatives** (from Chinese origin ports to project destination sites). 
+    > It allows easy comparison between ocean transit times, inland trucking distances, transit durations, and base costs to determine the most cost-effective routing strategy for renewable energy projects.
+    """)
+
     EUROPEAN_LOGISTICS_HUB = {
         "Romania": {
             "site_name": "Bucharest / Ilfov / Ploiești Energy Hub (Romania)",
             "gateways": [
-                {"port": "Constanta (Black Sea Main Gateway)", "ocean_days": 32, "inland_dist_km": 280, "inland_transit_days": 3, "cost": 3600},
-                {"port": "Varna / Burgas (Black Sea Secondary)", "ocean_days": 34, "inland_dist_km": 380, "inland_transit_days": 4, "cost": 4100},
-                {"port": "Koper (Adriatic Multimodal Gateway)", "ocean_days": 35, "inland_dist_km": 1100, "inland_transit_days": 7, "cost": 6500},
-                {"port": "Hamburg / Rotterdam (North Sea Corridor)", "ocean_days": 35, "inland_dist_km": 1800, "inland_transit_days": 10, "cost": 8200}
+                {"port": "Constanta (Black Sea Main Gateway)", "ocean_days": 32, "inland_dist_km": 280, "inland_days": 3, "cost": 3600},
+                {"port": "Varna / Burgas (Black Sea Secondary)", "ocean_days": 34, "inland_dist_km": 380, "inland_days": 4, "cost": 4100},
+                {"port": "Koper (Adriatic Multimodal Gateway)", "ocean_days": 35, "inland_dist_km": 1100, "inland_days": 7, "cost": 6500},
+                {"port": "Hamburg / Rotterdam (North Sea Corridor)", "ocean_days": 35, "inland_dist_km": 1800, "inland_days": 10, "cost": 8200}
             ]
         },
         "Germany": {
             "site_name": "Berlin / Frankfurt / Rhine-Ruhr Hub (Germany)",
             "gateways": [
-                {"port": "Hamburg / Bremen (North Sea Main Gateway)", "ocean_days": 35, "inland_dist_km": 350, "inland_transit_days": 3, "cost": 3800},
-                {"port": "Rotterdam / Antwerp (Western Europe Gateway)", "ocean_days": 35, "inland_dist_km": 550, "inland_transit_days": 4, "cost": 5200},
-                {"port": "Koper (Adriatic Gateway)", "ocean_days": 35, "inland_dist_km": 850, "inland_transit_days": 6, "cost": 6800}
+                {"port": "Hamburg / Bremen (North Sea Main Gateway)", "ocean_days": 35, "inland_dist_km": 350, "inland_days": 3, "cost": 3800},
+                {"port": "Rotterdam / Antwerp (Western Europe Gateway)", "ocean_days": 35, "inland_dist_km": 550, "inland_days": 4, "cost": 5200},
+                {"port": "Koper (Adriatic Gateway)", "ocean_days": 35, "inland_dist_km": 850, "inland_days": 6, "cost": 6800}
             ]
         },
         "Italy": {
             "site_name": "Padova / Milan / Northern Italy Energy Hub",
             "gateways": [
-                {"port": "Genoa / Trieste / Venice (Med/Adriatic Hub)", "ocean_days": 34, "inland_dist_km": 200, "inland_transit_days": 2, "cost": 2100},
-                {"port": "Koper / Rijeka (Adriatic Gateway)", "ocean_days": 35, "inland_dist_km": 300, "inland_transit_days": 3, "cost": 3200},
-                {"port": "Rotterdam / Antwerp (Northern Corridor)", "ocean_days": 35, "inland_dist_km": 1100, "inland_transit_days": 7, "cost": 7500}
+                {"port": "Genoa / Trieste / Venice (Med/Adriatic Hub)", "ocean_days": 34, "inland_dist_km": 200, "inland_days": 2, "cost": 2100},
+                {"port": "Koper / Rijeka (Adriatic Gateway)", "ocean_days": 35, "inland_dist_km": 300, "inland_days": 3, "cost": 3200},
+                {"port": "Rotterdam / Antwerp (Northern Corridor)", "ocean_days": 35, "inland_dist_km": 1100, "inland_days": 7, "cost": 7500}
             ]
         },
         "Netherlands": {
             "site_name": "Amsterdam / Rotterdam Industrial & Energy Zone",
             "gateways": [
-                {"port": "Rotterdam / Antwerp (Local Western Gateway)", "ocean_days": 35, "inland_dist_km": 60, "inland_transit_days": 1, "cost": 600},
-                {"port": "Hamburg / Bremen (North Sea Hub)", "ocean_days": 36, "inland_dist_km": 450, "inland_transit_days": 4, "cost": 4200}
+                {"port": "Rotterdam / Antwerp (Local Western Gateway)", "ocean_days": 35, "inland_dist_km": 60, "inland_days": 1, "cost": 600},
+                {"port": "Hamburg / Bremen (North Sea Hub)", "ocean_days": 36, "inland_dist_km": 450, "inland_days": 4, "cost": 4200}
             ]
         },
         "Greece": {
             "site_name": "Athens / Attica / Central Greece Energy Hub",
             "gateways": [
-                {"port": "Piraeus / Thessaloniki (Hellenic Main Gateway)", "ocean_days": 32, "inland_dist_km": 40, "inland_transit_days": 1, "cost": 600},
-                {"port": "Constanta / Black Sea Feeder", "ocean_days": 35, "inland_dist_km": 950, "inland_transit_days": 8, "cost": 7200}
+                {"port": "Piraeus / Thessaloniki (Hellenic Main Gateway)", "ocean_days": 32, "inland_dist_km": 40, "inland_days": 1, "cost": 600},
+                {"port": "Constanta / Black Sea Feeder", "ocean_days": 35, "inland_dist_km": 950, "inland_days": 8, "cost": 7200}
             ]
         }
     }
@@ -569,12 +574,12 @@ with tab5:
         for china_port in china_ports:
             routing_results.append({
                 "Origin Port (China)": china_port,
-                "European Gateway Port": gw["port"],
+                "European Gateway": gw["port"],
                 "Destination Site": country_info["site_name"],
                 "Ocean Transit (Days)": gw["ocean_days"],
                 "Inland Trucking Distance (km)": gw["inland_dist_km"],
-                "Inland Trucking Transit (Days)": gw["inland_transit_days"],
-                "Total Transit (Days)": gw["ocean_days"] + gw["inland_transit_days"],
+                "Inland Trucking Days": gw["inland_days"],
+                "Total Transit (Days)": gw["ocean_days"] + gw["inland_days"],
                 "Base Trucking Cost (€)": gw["cost"],
                 "Status": "Active & Verified"
             })
@@ -582,7 +587,7 @@ with tab5:
     if routing_results:
         df_routes = pd.DataFrame(routing_results)
         st.dataframe(df_routes, use_container_width=True, hide_index=True)
-        st.success(f"Smart Agent successfully mapped public energy hubs and maritime gateways for {selected_country}.")
+        st.success(f"Smart Agent successfully mapped routing alternatives for {selected_country}.")
     else:
         st.info("No routing options available for this selection.")
 with tab6:
