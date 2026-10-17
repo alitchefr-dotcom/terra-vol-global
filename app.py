@@ -90,8 +90,8 @@ LOGISTICS_NETWORK = {
             "Sofia (Bulgaria)": {"distance_km": 380, "transit_days": 4, "base_trucking_cost": 4100},
             "Warsaw (Poland)": {"distance_km": 450, "transit_days": 5, "base_trucking_cost": 4800},
             "Budapest (Hungary)": {"distance_km": 300, "transit_days": 3, "base_trucking_cost": 3900},
-            "Karmiel (Israel)": {"distance_km": 120, "transit_days": 2, "base_trucking_cost": 1800},
-            "Oujda (Morocco)": {"distance_km": 550, "transit_days": 6, "base_trucking_cost": 6500}
+            
+            
         }
     },
     "Piraeus (GR)": {
@@ -99,8 +99,8 @@ LOGISTICS_NETWORK = {
             "Iepurești (Romania)": {"distance_km": 1150, "transit_days": 12, "base_trucking_cost": 9500},
             "Ghimpați (Romania)": {"distance_km": 1180, "transit_days": 12, "base_trucking_cost": 9800},
             "Sofia (Bulgaria)": {"distance_km": 400, "transit_days": 4, "base_trucking_cost": 4500},
-            "Taxilou (Greece)": {"distance_km": 45, "transit_days": 1, "base_trucking_cost": 800},
-            "Alimos (Greece)": {"distance_km": 25, "transit_days": 1, "base_trucking_cost": 600}
+            
+           
         }
     },
     "Constanta (RO)": {
@@ -170,7 +170,7 @@ LOGISTICS_NETWORK = {
 }
     
     # 2. Aegean Sea & Saronic Gulf Ports (Greece)
-    "Piraeus (Greece)": {
+   "Piraeus (Greece)": {
         "destinations": {
             "Greece (Local - Athens / Larissa)": {"distance_km": 350, "base_trucking_cost": 2800, "transit_days": 1},
             "Bulgaria (Sofia)": {"distance_km": 550, "base_trucking_cost": 4500, "transit_days": 2},
