@@ -274,3 +274,179 @@ def calculate_project_costs(
         "demurrage_total_usd": demurrage_total_usd if include_delay_scenario else 0.0,
         "external_storage_total_usd": external_storage_total_usd if include_delay_scenario else 0.0
     }
+
+
+# ---------------------------------------------------------------------------
+# MULTI-SHIPMENT PLANNER
+# ---------------------------------------------------------------------------
+# A project is split into shipments (container line SOC / COC, or MPP vessel).
+# Each shipment carries one or more "lines" (equipment type + quantity + rates).
+# All amounts are converted to USD internally.
+
+EQUIPMENT_TYPES = ["BESS", "OOG", "MVS", "Transformer", "Accessory", "Solar"]
+# Duty group per equipment type: "general" -> general duty %, "mvs" -> MVS/transformer duty %, "solar" -> 0%
+EQUIPMENT_DUTY_GROUP = {
+    "BESS": "general", "OOG": "general", "Accessory": "general",
+    "MVS": "mvs", "Transformer": "mvs", "Solar": "solar",
+}
+SERVICE_TYPES = ["Container Line - SOC", "Container Line - COC", "MPP Vessel"]
+
+
+def _num(value, default=0.0):
+    try:
+        v = float(value)
+        if v != v:  # NaN
+            return default
+        return v
+    except (TypeError, ValueError):
+        return default
+
+
+def to_usd(amount, currency, usd_to_eur):
+    if str(currency).upper().startswith("EUR") and usd_to_eur > 0:
+        return amount / usd_to_eur
+    return amount
+
+
+def calculate_shipment_plan(
+    shipments, lines, exw_usd_per_type, required_units,
+    usd_to_eur=0.92, trend_multiplier=1.0,
+    insurance_pct=0.15, customs_duty_pct=2.7, mvs_customs_duty_pct=0.0,
+    applied_vat=19.0, vat_recovery_pct=100.0, dest_country_code="RO",
+    project_level_costs_usd=0.0, contingency_pct=5.0, decommissioning_pv_usd=0.0,
+):
+    """
+    shipments: list of dicts with keys
+        name, carrier, service, origin, pod, etd, eta, currency,
+        origin_charges_per_unit, port_days, free_days, daily_rate_per_unit, extra_lump_sum
+    lines: list of dicts with keys
+        shipment, equipment, qty, currency, freight_per_unit, baf_per_unit, dthc_per_unit, trucking_per_unit
+    exw_usd_per_type: {equipment_type: EXW value per unit in USD}
+    required_units:   {equipment_type: units required by the project}
+    """
+    is_european_dest = (dest_country_code != "IL")
+    names = [s["name"] for s in shipments]
+    results = []
+    allocated = {t: 0 for t in EQUIPMENT_TYPES}
+    orphan_lines = []
+
+    for s in shipments:
+        s_lines = [l for l in lines if l.get("shipment") == s["name"]]
+        cur_s = s.get("currency", "USD")
+
+        units = 0
+        goods_value = 0.0
+        value_general = value_mvs = 0.0
+        freight = baf = dthc = trucking = 0.0
+        units_by_type = {}
+
+        for l in s_lines:
+            eq = l.get("equipment")
+            qty = int(_num(l.get("qty")))
+            if eq not in EQUIPMENT_TYPES or qty <= 0:
+                continue
+            cur_l = l.get("currency", "USD")
+            units += qty
+            allocated[eq] += qty
+            units_by_type[eq] = units_by_type.get(eq, 0) + qty
+
+            v = qty * exw_usd_per_type.get(eq, 0.0) * trend_multiplier
+            goods_value += v
+            grp = EQUIPMENT_DUTY_GROUP[eq]
+            if grp == "general":
+                value_general += v
+            elif grp == "mvs":
+                value_mvs += v
+
+            freight += qty * to_usd(_num(l.get("freight_per_unit")), cur_l, usd_to_eur)
+            baf += qty * to_usd(_num(l.get("baf_per_unit")), cur_l, usd_to_eur)
+            dthc += qty * to_usd(_num(l.get("dthc_per_unit")), cur_l, usd_to_eur)
+            trucking += qty * to_usd(_num(l.get("trucking_per_unit")), cur_l, usd_to_eur)
+
+        origin_charges = units * to_usd(_num(s.get("origin_charges_per_unit")), cur_s, usd_to_eur)
+        ocean_total = freight + baf
+
+        cif_base = goods_value + origin_charges + ocean_total
+        insurance = cif_base * (insurance_pct / 100.0)
+        customs_base = cif_base + insurance
+        general_ratio = (value_general / goods_value) if goods_value > 0 else 0.0
+        mvs_ratio = (value_mvs / goods_value) if goods_value > 0 else 0.0
+        duty = customs_base * (general_ratio * customs_duty_pct + mvs_ratio * mvs_customs_duty_pct) / 100.0
+
+        overdue_days = max(0, int(_num(s.get("port_days"))) - int(_num(s.get("free_days"))))
+        port_delay = overdue_days * units * to_usd(_num(s.get("daily_rate_per_unit")), cur_s, usd_to_eur)
+        # COC -> carrier demurrage; SOC / MPP -> terminal port storage (no carrier demurrage on own boxes)
+        delay_label = "Demurrage" if s.get("service") == "Container Line - COC" else "Port Storage"
+
+        extra = to_usd(_num(s.get("extra_lump_sum")), cur_s, usd_to_eur)
+
+        if is_european_dest:
+            vat_base = customs_base + duty + dthc + trucking
+        else:
+            vat_base = customs_base + duty + dthc
+        vat = vat_base * (applied_vat / 100.0)
+
+        total_ex_vat = (goods_value + origin_charges + ocean_total + insurance + duty +
+                        dthc + trucking + port_delay + extra)
+        logistics_ex_vat = total_ex_vat - goods_value
+
+        etd, eta = s.get("etd"), s.get("eta")
+        transit_days = None
+        try:
+            if etd is not None and eta is not None:
+                transit_days = (eta - etd).days
+        except Exception:
+            transit_days = None
+
+        results.append({
+            "name": s["name"], "carrier": s.get("carrier", ""), "service": s.get("service", ""),
+            "origin": s.get("origin", ""), "pod": s.get("pod", ""),
+            "etd": etd, "eta": eta, "transit_days": transit_days,
+            "units": units, "units_by_type": units_by_type,
+            "goods_value": goods_value, "origin_charges": origin_charges,
+            "freight": freight, "baf": baf, "insurance": insurance, "duty": duty,
+            "dthc": dthc, "trucking": trucking,
+            "overdue_days": overdue_days, "port_delay": port_delay, "delay_label": delay_label,
+            "extra": extra, "vat": vat,
+            "logistics_ex_vat": logistics_ex_vat, "total_ex_vat": total_ex_vat,
+        })
+
+    for l in lines:
+        if l.get("shipment") not in names and int(_num(l.get("qty"))) > 0:
+            orphan_lines.append(l)
+
+    coverage = []
+    for t in EQUIPMENT_TYPES:
+        req = int(required_units.get(t, 0))
+        alloc = allocated[t]
+        if req == 0 and alloc == 0:
+            continue
+        diff = alloc - req
+        status = "OK" if diff == 0 else ("Missing" if diff < 0 else "Over-allocated")
+        coverage.append({"equipment": t, "required": req, "allocated": alloc, "difference": diff, "status": status})
+
+    shipments_total = sum(r["total_ex_vat"] for r in results)
+    vat_total = sum(r["vat"] for r in results)
+    subtotal = shipments_total + project_level_costs_usd
+    contingency = subtotal * (contingency_pct / 100.0)
+    landed_ex_vat = subtotal + contingency
+    recoverable_vat = vat_total * (vat_recovery_pct / 100.0)
+    non_recoverable_vat = vat_total - recoverable_vat
+
+    return {
+        "shipments": results,
+        "coverage": coverage,
+        "coverage_ok": all(c["status"] == "OK" for c in coverage),
+        "orphan_lines": orphan_lines,
+        "shipments_total_ex_vat": shipments_total,
+        "logistics_total_ex_vat": sum(r["logistics_ex_vat"] for r in results),
+        "goods_total": sum(r["goods_value"] for r in results),
+        "port_delay_total": sum(r["port_delay"] for r in results),
+        "project_level_costs": project_level_costs_usd,
+        "contingency": contingency,
+        "landed_ex_vat": landed_ex_vat,
+        "vat_total": vat_total,
+        "recoverable_vat": recoverable_vat,
+        "cash_incl_vat": landed_ex_vat + vat_total,
+        "economic_cost": landed_ex_vat + non_recoverable_vat + decommissioning_pv_usd,
+    }

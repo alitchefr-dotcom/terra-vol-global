@@ -4,6 +4,7 @@ import os
 import io
 from datetime import date
 from calc import get_live_exchange_rate, convert_currency, format_currency, calculate_project_costs
+from calc import calculate_shipment_plan, EQUIPMENT_TYPES, SERVICE_TYPES
 
 st.set_page_config(
     page_title="Terra Vol | Global BESS Project Calculator",
@@ -251,14 +252,15 @@ with col_logo:
 
 st.markdown("---")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📋 Equipment Mix & Quantities",
     "🚢 Supply Chain & Incoterms",
     "📦 Storage, Demurrage & Drayage",
     "⚖️ Regulation & Approvals",
     "🗺️ European Route Options",
     "📂 Infrastructure Projects",
-    "📊 Budget & Carbon Report"
+    "📊 Budget & Carbon Report",
+    "🧩 Multi-Shipment Planner"
 ])
 
 with tab1:
@@ -695,6 +697,247 @@ with tab7:
         data=excel_data,
         file_name=f"Terra_Vol_Landed_Cost_Report_{dest_code}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+with tab8:
+    st.subheader("🧩 Multi-Shipment Planner — Carriers, SOC / COC & MPP")
+    st.markdown(
+        "Split the project into several shipments (different carriers, container lines or MPP vessels, "
+        "different sailing dates). Each shipment is costed separately and summed into one project total. "
+        "Edit the tables directly — use the **+** row at the bottom of a table to add a shipment or line."
+    )
+
+    CHINA_ORIGIN_PORTS = [
+        "Shanghai", "Ningbo-Zhoushan", "Qingdao", "Shenzhen - Yantian",
+        "Shenzhen - Shekou", "Guangzhou - Nansha", "Xingang / Tianjin", "Other"
+    ]
+    POD_OPTIONS = all_european_ports + ["Other"]
+
+    if "msp_shipments" not in st.session_state:
+        st.session_state.msp_shipments = pd.DataFrame([
+            {"Shipment": "Shipment 1", "Carrier": "COSCO", "Service": "Container Line - SOC",
+             "Origin Port": "Shanghai", "POD": POD_OPTIONS[0],
+             "ETD": date(2027, 3, 1), "ETA": date(2027, 4, 5), "Currency": "USD",
+             "Origin Charges / Unit": 350.0, "Port Days": 6, "Free Days": 3,
+             "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 0.0},
+            {"Shipment": "Shipment 2", "Carrier": "MPP Operator", "Service": "MPP Vessel",
+             "Origin Port": "Shanghai", "POD": POD_OPTIONS[0],
+             "ETD": date(2027, 4, 1), "ETA": date(2027, 5, 10), "Currency": "USD",
+             "Origin Charges / Unit": 350.0, "Port Days": 4, "Free Days": 3,
+             "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 5000.0},
+            {"Shipment": "Shipment 3", "Carrier": "MSC", "Service": "Container Line - COC",
+             "Origin Port": "Ningbo-Zhoushan", "POD": POD_OPTIONS[0],
+             "ETD": date(2027, 3, 15), "ETA": date(2027, 4, 20), "Currency": "USD",
+             "Origin Charges / Unit": 350.0, "Port Days": 6, "Free Days": 5,
+             "Daily Rate / Unit after Free Days": 150.0, "Extra Lump Sum": 0.0},
+        ])
+        st.session_state.msp_lines = pd.DataFrame([
+            {"Shipment": "Shipment 1", "Equipment": "BESS", "Qty": 10, "Currency": "USD",
+             "Freight / Unit": 18000.0, "BAF / Unit": 0.0, "Dest. THC / Unit": 400.0, "Trucking / Unit": 5500.0},
+            {"Shipment": "Shipment 2", "Equipment": "BESS", "Qty": 10, "Currency": "USD",
+             "Freight / Unit": 21000.0, "BAF / Unit": 0.0, "Dest. THC / Unit": 0.0, "Trucking / Unit": 5500.0},
+            {"Shipment": "Shipment 2", "Equipment": "MVS", "Qty": 4, "Currency": "USD",
+             "Freight / Unit": 6000.0, "BAF / Unit": 0.0, "Dest. THC / Unit": 0.0, "Trucking / Unit": 4500.0},
+            {"Shipment": "Shipment 3", "Equipment": "Accessory", "Qty": 2, "Currency": "USD",
+             "Freight / Unit": 4000.0, "BAF / Unit": 1500.0, "Dest. THC / Unit": 400.0, "Trucking / Unit": 3000.0},
+        ])
+
+    st.markdown("#### 1. Shipments")
+    st.caption(
+        "Daily Rate after Free Days = carrier **demurrage** for COC containers, or terminal **port storage** "
+        "for SOC containers and MPP cargo (no carrier demurrage on shipper-owned boxes). "
+        "Extra Lump Sum = any one-off cost for the shipment (e.g. MPP port charges, lashing, surveys)."
+    )
+    edited_shipments = st.data_editor(
+        st.session_state.msp_shipments,
+        key="msp_shipments_editor",
+        num_rows="dynamic",
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Shipment": st.column_config.TextColumn("Shipment", required=True),
+            "Carrier": st.column_config.TextColumn("Carrier"),
+            "Service": st.column_config.SelectboxColumn("Service", options=SERVICE_TYPES, required=True),
+            "Origin Port": st.column_config.SelectboxColumn("Origin Port", options=CHINA_ORIGIN_PORTS),
+            "POD": st.column_config.SelectboxColumn("POD", options=POD_OPTIONS),
+            "ETD": st.column_config.DateColumn("ETD", format="DD/MM/YYYY"),
+            "ETA": st.column_config.DateColumn("ETA", format="DD/MM/YYYY"),
+            "Currency": st.column_config.SelectboxColumn("Currency", options=["USD", "EUR"], required=True),
+            "Origin Charges / Unit": st.column_config.NumberColumn("Origin Charges / Unit", min_value=0.0, step=50.0, format="%.0f"),
+            "Port Days": st.column_config.NumberColumn("Port Days", min_value=0, step=1),
+            "Free Days": st.column_config.NumberColumn("Free Days", min_value=0, step=1),
+            "Daily Rate / Unit after Free Days": st.column_config.NumberColumn("Daily Rate / Unit after Free Days", min_value=0.0, step=10.0, format="%.0f"),
+            "Extra Lump Sum": st.column_config.NumberColumn("Extra Lump Sum", min_value=0.0, step=500.0, format="%.0f"),
+        },
+    )
+
+    shipment_names = [str(n).strip() for n in edited_shipments["Shipment"].tolist()
+                      if n is not None and str(n).strip() not in ("", "nan", "None")]
+    if len(shipment_names) != len(set(shipment_names)):
+        st.warning("⚠️ Two or more shipments have the same name. Please give each shipment a unique name.")
+
+    st.markdown("#### 2. Equipment on Each Shipment")
+    st.caption("One line per equipment type per shipment. Rates are per unit, in the currency selected on the line.")
+    edited_lines = st.data_editor(
+        st.session_state.msp_lines,
+        key="msp_lines_editor",
+        num_rows="dynamic",
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Shipment": st.column_config.SelectboxColumn("Shipment", options=sorted(set(shipment_names)), required=True),
+            "Equipment": st.column_config.SelectboxColumn("Equipment", options=EQUIPMENT_TYPES, required=True),
+            "Qty": st.column_config.NumberColumn("Qty", min_value=0, step=1),
+            "Currency": st.column_config.SelectboxColumn("Currency", options=["USD", "EUR"], required=True),
+            "Freight / Unit": st.column_config.NumberColumn("Freight / Unit", min_value=0.0, step=500.0, format="%.0f"),
+            "BAF / Unit": st.column_config.NumberColumn("BAF / Unit", min_value=0.0, step=100.0, format="%.0f"),
+            "Dest. THC / Unit": st.column_config.NumberColumn("Dest. THC / Unit", min_value=0.0, step=50.0, format="%.0f"),
+            "Trucking / Unit": st.column_config.NumberColumn("Trucking / Unit", min_value=0.0, step=500.0, format="%.0f"),
+        },
+    )
+
+    def _clean_date(v):
+        if v is None:
+            return None
+        try:
+            if pd.isna(v):
+                return None
+        except (TypeError, ValueError):
+            pass
+        if hasattr(v, "date") and callable(getattr(v, "date")):
+            return v.date()
+        return v
+
+    msp_shipments = []
+    for _, row in edited_shipments.iterrows():
+        name = row.get("Shipment")
+        if name is None or str(name).strip() in ("", "nan", "None"):
+            continue
+        msp_shipments.append({
+            "name": str(name).strip(),
+            "carrier": "" if pd.isna(row.get("Carrier")) else str(row.get("Carrier")),
+            "service": row.get("Service") if row.get("Service") in SERVICE_TYPES else "Container Line - COC",
+            "origin": "" if pd.isna(row.get("Origin Port")) else str(row.get("Origin Port")),
+            "pod": "" if pd.isna(row.get("POD")) else str(row.get("POD")),
+            "etd": _clean_date(row.get("ETD")),
+            "eta": _clean_date(row.get("ETA")),
+            "currency": row.get("Currency") or "USD",
+            "origin_charges_per_unit": row.get("Origin Charges / Unit"),
+            "port_days": row.get("Port Days"),
+            "free_days": row.get("Free Days"),
+            "daily_rate_per_unit": row.get("Daily Rate / Unit after Free Days"),
+            "extra_lump_sum": row.get("Extra Lump Sum"),
+        })
+
+    msp_lines = []
+    for _, row in edited_lines.iterrows():
+        sh = row.get("Shipment")
+        if sh is None or (not isinstance(sh, str) and pd.isna(sh)):
+            continue
+        msp_lines.append({
+            "shipment": str(sh).strip(),
+            "equipment": row.get("Equipment"),
+            "qty": row.get("Qty"),
+            "currency": row.get("Currency") or "USD",
+            "freight_per_unit": row.get("Freight / Unit"),
+            "baf_per_unit": row.get("BAF / Unit"),
+            "dthc_per_unit": row.get("Dest. THC / Unit"),
+            "trucking_per_unit": row.get("Trucking / Unit"),
+        })
+
+    msp_exw = {"BESS": bess_exw, "OOG": oog_exw, "MVS": mvs_exw, "Transformer": transformer_exw,
+               "Accessory": access_exw, "Solar": solar_exw}
+    msp_required = {"BESS": bess_count, "OOG": oog_count, "MVS": mvs_count, "Transformer": transformer_count,
+                    "Accessory": access_count, "Solar": solar_count}
+    msp_project_level = (
+        results["active_regulatory_permits"] + results["active_site_crane"] +
+        results["epr_recycling_total_usd"] + results["battery_passport_total_usd"] +
+        results["active_heavy_lift"]
+    )
+
+    plan = calculate_shipment_plan(
+        msp_shipments, msp_lines, msp_exw, msp_required,
+        usd_to_eur=usd_to_eur, trend_multiplier=trend_multiplier,
+        insurance_pct=insurance_pct, customs_duty_pct=customs_duty_pct,
+        mvs_customs_duty_pct=mvs_customs_duty_pct,
+        applied_vat=applied_vat, vat_recovery_pct=vat_recovery_pct, dest_country_code=dest_code,
+        project_level_costs_usd=msp_project_level, contingency_pct=contingency_pct,
+        decommissioning_pv_usd=results["decommissioning_pv_usd"],
+    )
+
+    msp_mult = usd_to_eur if is_eur_display else 1.0
+    msp_sym = "€" if is_eur_display else "$"
+
+    def _fmt(x):
+        return f"{msp_sym} {x * msp_mult:,.0f}" if x else "-"
+
+    # --- Coverage check ---
+    st.markdown("#### 3. Equipment Coverage Check")
+    if plan["coverage"]:
+        cov_df = pd.DataFrame(plan["coverage"]).rename(columns={
+            "equipment": "Equipment", "required": "Required (Tab 1)", "allocated": "On Shipments",
+            "difference": "Difference", "status": "Status"})
+        st.dataframe(cov_df, use_container_width=True, hide_index=True)
+    if plan["coverage_ok"]:
+        st.success("✅ All project equipment is allocated to shipments exactly once.")
+    else:
+        st.warning("⚠️ Equipment allocation does not match the quantities in the Equipment Mix tab. "
+                   "The totals below only include what is on the shipments.")
+    if plan["orphan_lines"]:
+        st.warning(f"⚠️ {len(plan['orphan_lines'])} equipment line(s) point to a shipment name that no longer exists "
+                   "and are not counted. Re-select the shipment on those lines.")
+
+    # --- Per-shipment costs ---
+    st.markdown(f"#### 4. Cost per Shipment ({curr_code})")
+    rows = []
+    for r in plan["shipments"]:
+        rows.append({
+            "Shipment": r["name"],
+            "Carrier": r["carrier"],
+            "Service": r["service"],
+            "Units": r["units"],
+            "ETD": r["etd"].strftime("%d/%m/%Y") if r["etd"] else "",
+            "ETA": r["eta"].strftime("%d/%m/%Y") if r["eta"] else "",
+            "Transit (Days)": r["transit_days"] if r["transit_days"] is not None else "",
+            "Equipment Value": _fmt(r["goods_value"]),
+            "Origin Charges": _fmt(r["origin_charges"]),
+            "Ocean Freight + BAF": _fmt(r["freight"] + r["baf"]),
+            "Insurance": _fmt(r["insurance"]),
+            "Customs Duty": _fmt(r["duty"]),
+            "Dest. THC": _fmt(r["dthc"]),
+            "Inland Trucking": _fmt(r["trucking"]),
+            "Demurrage / Storage": (f"{_fmt(r['port_delay'])} ({r['delay_label']}, {r['overdue_days']}d)"
+                                    if r["port_delay"] else "-"),
+            "Extra": _fmt(r["extra"]),
+            "Logistics Total (ex VAT)": _fmt(r["logistics_ex_vat"]),
+            "Shipment Total (ex VAT)": _fmt(r["total_ex_vat"]),
+            "Import VAT": _fmt(r["vat"]),
+        })
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    else:
+        st.info("Add at least one shipment and one equipment line to see costs.")
+
+    # --- Project totals ---
+    st.markdown(f"#### 5. Project Total — All Shipments ({curr_code})")
+    t1, t2, t3, t4 = st.columns(4)
+    t1.metric("Logistics Cost (all shipments, ex VAT)", format_currency(plan["logistics_total_ex_vat"] * msp_mult, curr_code))
+    t2.metric("Total Landed Cost (ex VAT)", format_currency(plan["landed_ex_vat"] * msp_mult, curr_code))
+    t3.metric("Total Cash Requirement (incl. VAT)", format_currency(plan["cash_incl_vat"] * msp_mult, curr_code))
+    t4.metric("Total Economic Cost", format_currency(plan["economic_cost"] * msp_mult, curr_code))
+
+    summary_rows = [
+        {"Item": "Equipment value (EXW × trend)", "Amount": _fmt(plan["goods_total"])},
+        {"Item": "Logistics, insurance & duty — all shipments", "Amount": _fmt(plan["logistics_total_ex_vat"])},
+        {"Item": "Project-level costs (permits, site crane, EPR, battery passport, heavy-lift survey)", "Amount": _fmt(plan["project_level_costs"])},
+        {"Item": f"Contingency ({contingency_pct}%)", "Amount": _fmt(plan["contingency"])},
+        {"Item": "Total Landed Cost (ex VAT)", "Amount": _fmt(plan["landed_ex_vat"])},
+        {"Item": f"Import VAT ({applied_vat}%) — recoverable {vat_recovery_pct}%", "Amount": _fmt(plan["vat_total"])},
+    ]
+    st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+    st.caption(
+        "Insurance, duty, VAT, contingency and project-level costs use the settings from the other tabs. "
+        "Freight rates entered here are treated as actual quotes, so the trend multiplier is applied to equipment value only."
     )
 st.markdown("---")
 st.markdown("---")
