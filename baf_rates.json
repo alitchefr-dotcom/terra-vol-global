@@ -1,0 +1,577 @@
+{
+  "_about": "Fuel surcharges per TEU (USD) by carrier and trade lane. Updated monthly by a scheduled Claude task. 20ft = 1 TEU, 40ft = 2 TEU. null = not found / not published.",
+  "last_run": null,
+  "lanes": [
+    "China - East Med / Israel",
+    "China - Black Sea",
+    "China - Adriatic",
+    "China - West Med",
+    "China - North Europe"
+  ],
+  "carriers": {
+    "MSC": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "Maersk": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "CMA CGM": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "COSCO Shipping": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "Hapag-Lloyd": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "Evergreen Line": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "ONE": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "HMM": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "ZIM": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": 850,
+        "baf_name": "NBF (New Bunker Factor)",
+        "efs_usd_per_teu": null,
+        "effective_from": "2026-07-01",
+        "source_url": "https://www.zim.com/it/customer-updates/nbf-new-bunker-factor-update-july-2026",
+        "verified_on": "2026-11-15",
+        "note": "China to Mediterranean / Black Sea & Europe. Seed value - may be outdated, refreshed by first monthly run."
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": 850,
+        "baf_name": "NBF (New Bunker Factor)",
+        "efs_usd_per_teu": null,
+        "effective_from": "2026-07-01",
+        "source_url": "https://www.zim.com/it/customer-updates/nbf-new-bunker-factor-update-july-2026",
+        "verified_on": "2026-11-15",
+        "note": "China to Mediterranean / Black Sea & Europe. Seed value - may be outdated, refreshed by first monthly run."
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": 850,
+        "baf_name": "NBF (New Bunker Factor)",
+        "efs_usd_per_teu": null,
+        "effective_from": "2026-07-01",
+        "source_url": "https://www.zim.com/it/customer-updates/nbf-new-bunker-factor-update-july-2026",
+        "verified_on": "2026-11-15",
+        "note": "China to Mediterranean / Black Sea & Europe. Seed value - may be outdated, refreshed by first monthly run."
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": 850,
+        "baf_name": "NBF (New Bunker Factor)",
+        "efs_usd_per_teu": null,
+        "effective_from": "2026-07-01",
+        "source_url": "https://www.zim.com/it/customer-updates/nbf-new-bunker-factor-update-july-2026",
+        "verified_on": "2026-11-15",
+        "note": "China to Mediterranean / Black Sea & Europe. Seed value - may be outdated, refreshed by first monthly run."
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": 850,
+        "baf_name": "NBF (New Bunker Factor)",
+        "efs_usd_per_teu": null,
+        "effective_from": "2026-07-01",
+        "source_url": "https://www.zim.com/it/customer-updates/nbf-new-bunker-factor-update-july-2026",
+        "verified_on": "2026-11-15",
+        "note": "China to Mediterranean / Black Sea & Europe. Seed value - may be outdated, refreshed by first monthly run."
+      }
+    },
+    "Yang Ming": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "OOCL": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    },
+    "Sea Legend": {
+      "China - East Med / Israel": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Black Sea": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - Adriatic": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - West Med": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      },
+      "China - North Europe": {
+        "baf_usd_per_teu": null,
+        "baf_name": null,
+        "efs_usd_per_teu": null,
+        "effective_from": null,
+        "source_url": null,
+        "verified_on": null,
+        "note": "Not yet checked"
+      }
+    }
+  }
+}

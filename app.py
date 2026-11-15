@@ -2,9 +2,59 @@ import streamlit as st
 import pandas as pd
 import os
 import io
+import json
+import importlib
 from datetime import date
+import calc as _calc_module
+importlib.reload(_calc_module)  # always load the latest calc.py after an update (no app reboot needed)
 from calc import get_live_exchange_rate, convert_currency, format_currency, calculate_project_costs
-from calc import calculate_shipment_plan, EQUIPMENT_TYPES, SERVICE_TYPES
+from calc import calculate_shipment_plan, EQUIPMENT_TYPES, SERVICE_TYPES, CONTAINER_SIZES, teu_factor
+
+CARRIERS = ["MSC", "Maersk", "CMA CGM", "COSCO Shipping", "Hapag-Lloyd", "Evergreen Line", "ONE", "HMM",
+            "ZIM", "Yang Ming", "OOCL", "Sea Legend"]
+
+
+def load_baf_rates(path="baf_rates.json"):
+    """Monthly fuel-surcharge table (BAF / EFS per TEU) maintained by a scheduled task."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"carriers": {}, "lanes": [], "last_run": None}
+
+
+def port_to_lane(port):
+    """Map a port of destination to the carriers' trade lane (origin China)."""
+    p = (port or "").lower()
+    if any(k in p for k in ["israel", "haifa", "ashdod", "eilat", "piraeus", "thessaloniki", "greece"]):
+        return "China - East Med / Israel"
+    if any(k in p for k in ["constan", "varna", "burgas", "romania", "bulgaria", "black sea"]):
+        return "China - Black Sea"
+    if any(k in p for k in ["koper", "trieste", "venice", "rijeka", "slovenia", "adriatic"]):
+        return "China - Adriatic"
+    if any(k in p for k in ["genoa", "valencia", "marseille", "barcelona", "spain", "france"]):
+        return "China - West Med"
+    if any(k in p for k in ["rotterdam", "antwerp", "hamburg", "bremerhaven", "gdansk", "gdynia",
+                            "helsinki", "kotka", "netherlands", "germany", "poland", "belgium", "finland"]):
+        return "China - North Europe"
+    return None
+
+
+def lookup_surcharge(rates, carrier, port):
+    """Return the rates-file entry for a carrier + destination port, or None."""
+    lane = port_to_lane(port)
+    if not lane:
+        return None
+    name = (carrier or "").strip().lower()
+    for c, lanes in rates.get("carriers", {}).items():
+        if c.lower() == name or (name and (name in c.lower() or c.lower() in name)):
+            entry = lanes.get(lane)
+            if entry and entry.get("baf_usd_per_teu") is not None:
+                return dict(entry, carrier=c, lane=lane)
+    return None
+
+
+BAF_RATES = load_baf_rates()
 
 st.set_page_config(
     page_title="Terra Vol | Global BESS Project Calculator",
@@ -330,7 +380,7 @@ with tab2:
     
     col_sc1, col_sc2 = st.columns(2)
     with col_sc1:
-        shipping_line = st.selectbox("Shipping Line / Carrier:", ["MSC", "Maersk", "CMA CGM", "COSCO Shipping", "Hapag-Lloyd", "Evergreen Line", "ONE", "HMM"])
+        shipping_line = st.selectbox("Shipping Line / Carrier:", CARRIERS)
         origin_port = st.selectbox("Origin Port (China):", [
             "Shanghai, China - SIPG (Waigaoqiao / Yangshan)",
             "Ningbo-Zhoushan, China - Beilun Terminal",
@@ -364,26 +414,65 @@ with tab2:
     unit_freight_access = f_access / usd_to_eur if is_eur_display else f_access
     unit_freight_solar = f_solar / usd_to_eur if is_eur_display else f_solar
 
-    st.markdown(f"#### 2. Bunker Adjustment Factor (BAF) per TEU / Unit ({curr_code})")
+    st.markdown("#### 2. Container Size per Equipment Type")
+    st.caption("Carriers publish BAF / EFS per TEU: 20ft = 1 TEU, 40ft / 40ft HC = 2 TEU. "
+               "A 10ft SOC normally takes a 20ft slot and is billed as 1 TEU (adjustable below).")
+    cs1, cs2, cs3, cs4 = st.columns(4)
+    with cs1:
+        size_bess = st.selectbox("BESS container size:", CONTAINER_SIZES[:4], index=1, key="size_bess")
+        size_oog = st.selectbox("OOG unit size:", CONTAINER_SIZES[:4], index=2, key="size_oog")
+    with cs2:
+        size_mvs = st.selectbox("MVS container size:", CONTAINER_SIZES[:4], index=1, key="size_mvs")
+        size_trans = st.selectbox("Transformer size:", CONTAINER_SIZES[:4], index=1, key="size_trans")
+    with cs3:
+        size_access = st.selectbox("Accessory container size:", CONTAINER_SIZES[:4], index=3, key="size_access")
+        size_solar = st.selectbox("Solar PV container size:", CONTAINER_SIZES[:4], index=3, key="size_solar")
+    with cs4:
+        ten_ft_teu = st.number_input("10ft container billed as (TEU):", min_value=0.5, max_value=1.0, value=1.0, step=0.5,
+                                     key="ten_ft_teu")
+
+    st.markdown(f"#### 3. Fuel Surcharges per TEU — BAF & EFS ({curr_code})")
+    auto_baf = lookup_surcharge(BAF_RATES, shipping_line, dest_port)
+    if auto_baf:
+        st.caption(f"📡 Auto-filled from the monthly surcharge table: **{auto_baf['carrier']} — {auto_baf['lane']}** · "
+                   f"{auto_baf.get('baf_name') or 'BAF'} effective {auto_baf.get('effective_from') or '-'} · "
+                   f"checked {auto_baf.get('verified_on') or '-'}"
+                   + (f" · [source]({auto_baf['source_url']})" if auto_baf.get('source_url') else ""))
+    else:
+        st.caption(f"No published surcharge on file for **{shipping_line}** to this port yet — enter the BAF from your quote.")
     include_baf_in_freight = st.checkbox("Ocean Freight already includes BAF", value=False)
-    baf_base_val = 0.0 if include_baf_in_freight else (1500.0 * f_mult)
-    
-    cb1, cb2, cb3 = st.columns(3)
-    with cb1:
-        baf_bess = st.number_input(f"BESS BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
-        baf_oog = st.number_input(f"OOG BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
-    with cb2:
-        baf_mvs = st.number_input(f"MVS BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
-        baf_trans = st.number_input(f"Transformer BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
-    with cb3:
-        baf_access = st.number_input(f"Accessory BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
-        baf_solar = st.number_input(f"Solar PV BAF ({curr_code}):", min_value=0.0, value=baf_base_val, step=100.0)
+    auto_baf_usd = float(auto_baf["baf_usd_per_teu"]) if auto_baf else 600.0
+    auto_efs_usd = float(auto_baf["efs_usd_per_teu"]) if (auto_baf and auto_baf.get("efs_usd_per_teu") is not None) else 0.0
 
-    if is_eur_display:
-        baf_bess /= usd_to_eur; baf_oog /= usd_to_eur; baf_mvs /= usd_to_eur
-        baf_trans /= usd_to_eur; baf_access /= usd_to_eur; baf_solar /= usd_to_eur
+    bf1, bf2, bf3 = st.columns(3)
+    with bf1:
+        baf_per_teu_in = st.number_input(f"BAF per TEU ({curr_code}):", min_value=-2000.0,
+                                         value=0.0 if include_baf_in_freight else round(auto_baf_usd * f_mult, 2),
+                                         step=10.0, disabled=include_baf_in_freight)
+    with bf2:
+        apply_efs = st.checkbox("Apply Emergency Fuel Surcharge (EFS)", value=bool(auto_efs_usd))
+    with bf3:
+        efs_per_teu_in = st.number_input(f"EFS per TEU ({curr_code}):", min_value=0.0,
+                                         value=round(auto_efs_usd * f_mult, 2), step=10.0, disabled=not apply_efs)
 
-    st.markdown(f"#### 3. Destination Terminal Handling Charges (Destination THC) per Unit ({curr_code})")
+    baf_per_teu_usd = 0.0 if include_baf_in_freight else (baf_per_teu_in / usd_to_eur if is_eur_display else baf_per_teu_in)
+    efs_per_teu_usd = (efs_per_teu_in / usd_to_eur if is_eur_display else efs_per_teu_in) if apply_efs else 0.0
+
+    teu_bess, teu_oog = teu_factor(size_bess, ten_ft_teu), teu_factor(size_oog, ten_ft_teu)
+    teu_mvs, teu_trans = teu_factor(size_mvs, ten_ft_teu), teu_factor(size_trans, ten_ft_teu)
+    teu_access, teu_solar = teu_factor(size_access, ten_ft_teu), teu_factor(size_solar, ten_ft_teu)
+
+    # Per-unit fuel surcharges in USD (BAF + EFS) passed to the cost engine
+    fuel_per_teu_usd = baf_per_teu_usd + efs_per_teu_usd
+    baf_bess, baf_oog = fuel_per_teu_usd * teu_bess, fuel_per_teu_usd * teu_oog
+    baf_mvs, baf_trans = fuel_per_teu_usd * teu_mvs, fuel_per_teu_usd * teu_trans
+    baf_access, baf_solar = fuel_per_teu_usd * teu_access, fuel_per_teu_usd * teu_solar
+    project_teu = (bess_count * teu_bess + oog_count * teu_oog + mvs_count * teu_mvs +
+                   transformer_count * teu_trans + access_count * teu_access + solar_count * teu_solar)
+    st.info(f"Project volume: **{project_teu:g} TEU** · fuel surcharges = {project_teu:g} TEU × "
+            f"({'BAF' + (' + EFS' if apply_efs else '')}) per TEU.")
+
+    st.markdown(f"#### 4. Destination Terminal Handling Charges (Destination THC) per Unit ({curr_code})")
     thc_mult = f_mult
     ct1, ct2, ct3 = st.columns(3)
     with ct1:
@@ -789,6 +878,7 @@ with tab7:
         st.warning("⚠️ **Notice:** Both EPR recycling fees and Decommissioning provisions are active. Ensure there is no double-counting of end-of-life recycling scope.")
 
     disp_mult = usd_to_eur if is_eur_display else 1.0
+    efs_total_usd = project_teu * efs_per_teu_usd * trend_multiplier
 
     landed_disp = results["total_landed_cost_ex_vat"] * disp_mult
     economic_disp = results["economic_cost_ex_vat"] * disp_mult
@@ -810,7 +900,8 @@ with tab7:
         {"Cost Item": "Equipment EXW Value", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["trended_exw"] * disp_mult},
         {"Cost Item": "China Inland & Origin THC", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": (results["china_inland_drayage"] + results["china_origin_thc"]) * disp_mult},
         {"Cost Item": "Ocean Freight (Base)", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["total_base_ocean_freight"] * disp_mult},
-        {"Cost Item": "Bunker Adjustment Factor (BAF)", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["total_baf_ocean"] * disp_mult},
+        {"Cost Item": "Bunker Adjustment Factor (BAF)", "Basis / Qty": f"{project_teu:g} TEU", "RawAmount": (results["total_baf_ocean"] - efs_total_usd) * disp_mult},
+        {"Cost Item": "Emergency Fuel Surcharge (EFS)", "Basis / Qty": f"{project_teu:g} TEU" if apply_efs else "Not applied", "RawAmount": efs_total_usd * disp_mult},
         {"Cost Item": "Destination THC", "Basis / Qty": f"{results['total_containers_project']} Units", "RawAmount": results["destination_thc_total"] * disp_mult},
         {"Cost Item": "Marine Insurance", "Basis / Qty": f"{insurance_pct}% CIF", "RawAmount": results["insurance_total_usd"] * disp_mult},
         {"Cost Item": "Customs Duty", "Basis / Qty": f"Mixed Rates", "RawAmount": results["customs_duty_usd"] * disp_mult},
@@ -865,9 +956,9 @@ with tab8:
         st.error("⚠️ **Israel — Toxins Permit (היתר רעלים) missing.** Without it, BESS cannot be released from an external "
                  "storage terminal. Plan extra port storage days in the shipments below until the permit is in place.")
 
-    if "msp_shipments" not in st.session_state:
+    if "msp_shipments" not in st.session_state or "Container Size" not in st.session_state.get("msp_lines", pd.DataFrame()).columns:
         st.session_state.msp_shipments = pd.DataFrame([
-            {"Shipment": "Shipment 1", "Carrier": "COSCO", "Service": "Container Line - SOC",
+            {"Shipment": "Shipment 1", "Carrier": "COSCO Shipping", "Service": "Container Line - SOC",
              "Origin Port": "Shanghai", "POD": POD_OPTIONS[0],
              "ETD": date(2027, 3, 1), "ETA": date(2027, 4, 5), "Currency": "USD",
              "Origin Charges / Unit": 350.0, "Port Days": 6, "Free Days": 3,
@@ -884,14 +975,18 @@ with tab8:
              "Daily Rate / Unit after Free Days": 150.0, "Extra Lump Sum": 0.0},
         ])
         st.session_state.msp_lines = pd.DataFrame([
-            {"Shipment": "Shipment 1", "Equipment": "BESS", "Qty": 10, "Currency": "USD",
-             "Freight / Unit": 18000.0, "BAF / Unit": 0.0, "Dest. THC / Unit": 400.0, "Trucking / Unit": 5500.0},
-            {"Shipment": "Shipment 2", "Equipment": "BESS", "Qty": 10, "Currency": "USD",
-             "Freight / Unit": 21000.0, "BAF / Unit": 0.0, "Dest. THC / Unit": 0.0, "Trucking / Unit": 5500.0},
-            {"Shipment": "Shipment 2", "Equipment": "MVS", "Qty": 4, "Currency": "USD",
-             "Freight / Unit": 6000.0, "BAF / Unit": 0.0, "Dest. THC / Unit": 0.0, "Trucking / Unit": 4500.0},
-            {"Shipment": "Shipment 3", "Equipment": "Accessory", "Qty": 2, "Currency": "USD",
-             "Freight / Unit": 4000.0, "BAF / Unit": 1500.0, "Dest. THC / Unit": 400.0, "Trucking / Unit": 3000.0},
+            {"Shipment": "Shipment 1", "Equipment": "BESS", "Qty": 10, "Container Size": "20ft", "Currency": "USD",
+             "Freight / Unit": 18000.0, "BAF / TEU": None, "Apply EFS": False, "EFS / TEU": None,
+             "Dest. THC / Unit": 400.0, "Trucking / Unit": 5500.0},
+            {"Shipment": "Shipment 2", "Equipment": "BESS", "Qty": 10, "Container Size": "MPP / Breakbulk", "Currency": "USD",
+             "Freight / Unit": 21000.0, "BAF / TEU": 0.0, "Apply EFS": False, "EFS / TEU": 0.0,
+             "Dest. THC / Unit": 0.0, "Trucking / Unit": 5500.0},
+            {"Shipment": "Shipment 2", "Equipment": "MVS", "Qty": 4, "Container Size": "MPP / Breakbulk", "Currency": "USD",
+             "Freight / Unit": 6000.0, "BAF / TEU": 0.0, "Apply EFS": False, "EFS / TEU": 0.0,
+             "Dest. THC / Unit": 0.0, "Trucking / Unit": 4500.0},
+            {"Shipment": "Shipment 3", "Equipment": "Accessory", "Qty": 2, "Container Size": "40ft HC", "Currency": "USD",
+             "Freight / Unit": 4000.0, "BAF / TEU": None, "Apply EFS": False, "EFS / TEU": None,
+             "Dest. THC / Unit": 400.0, "Trucking / Unit": 3000.0},
         ])
 
     st.markdown("#### 1. Shipments")
@@ -908,7 +1003,7 @@ with tab8:
         use_container_width=True,
         column_config={
             "Shipment": st.column_config.TextColumn("Shipment", required=True),
-            "Carrier": st.column_config.TextColumn("Carrier"),
+            "Carrier": st.column_config.SelectboxColumn("Carrier", options=CARRIERS + ["MPP Operator", "Other"]),
             "Service": st.column_config.SelectboxColumn("Service", options=SERVICE_TYPES, required=True),
             "Origin Port": st.column_config.SelectboxColumn("Origin Port", options=CHINA_ORIGIN_PORTS),
             "POD": st.column_config.SelectboxColumn("POD", options=POD_OPTIONS),
@@ -929,7 +1024,10 @@ with tab8:
         st.warning("⚠️ Two or more shipments have the same name. Please give each shipment a unique name.")
 
     st.markdown("#### 2. Equipment on Each Shipment")
-    st.caption("One line per equipment type per shipment. Rates are per unit, in the currency selected on the line.")
+    st.caption("One line per equipment type per shipment, in the currency selected on the line. Freight, THC and trucking are "
+               "per unit. **BAF and EFS are per TEU** (20ft = 1 TEU, 40ft = 2 TEU, 10ft = "
+               f"{ten_ft_teu:g} TEU) — leave BAF / EFS **empty** to use the monthly surcharge table for the shipment's carrier "
+               "and POD. For MPP / Breakbulk lines BAF / EFS are per unit (usually included in the MPP rate).")
     edited_lines = st.data_editor(
         st.session_state.msp_lines,
         key="msp_lines_editor",
@@ -942,7 +1040,10 @@ with tab8:
             "Qty": st.column_config.NumberColumn("Qty", min_value=0, step=1),
             "Currency": st.column_config.SelectboxColumn("Currency", options=["USD", "EUR"], required=True),
             "Freight / Unit": st.column_config.NumberColumn("Freight / Unit", min_value=0.0, step=500.0, format="%.0f"),
-            "BAF / Unit": st.column_config.NumberColumn("BAF / Unit", min_value=0.0, step=100.0, format="%.0f"),
+            "Container Size": st.column_config.SelectboxColumn("Container Size", options=CONTAINER_SIZES, required=True),
+            "BAF / TEU": st.column_config.NumberColumn("BAF / TEU", help="Empty = auto from monthly table", step=10.0, format="%.0f"),
+            "Apply EFS": st.column_config.CheckboxColumn("Apply EFS", help="Emergency Fuel Surcharge"),
+            "EFS / TEU": st.column_config.NumberColumn("EFS / TEU", help="Empty = auto from monthly table", min_value=0.0, step=10.0, format="%.0f"),
             "Dest. THC / Unit": st.column_config.NumberColumn("Dest. THC / Unit", min_value=0.0, step=50.0, format="%.0f"),
             "Trucking / Unit": st.column_config.NumberColumn("Trucking / Unit", min_value=0.0, step=500.0, format="%.0f"),
         },
@@ -992,10 +1093,48 @@ with tab8:
             "qty": row.get("Qty"),
             "currency": row.get("Currency") or "USD",
             "freight_per_unit": row.get("Freight / Unit"),
-            "baf_per_unit": row.get("BAF / Unit"),
+            "container_size": row.get("Container Size") if row.get("Container Size") in CONTAINER_SIZES else "20ft",
+            "baf_per_teu": row.get("BAF / TEU"),
+            "apply_efs": bool(row.get("Apply EFS")) if not pd.isna(row.get("Apply EFS")) else False,
+            "efs_per_teu": row.get("EFS / TEU"),
             "dthc_per_unit": row.get("Dest. THC / Unit"),
             "trucking_per_unit": row.get("Trucking / Unit"),
         })
+
+    # Auto-fill empty BAF / EFS from the monthly surcharge table (by shipment carrier + POD)
+    _ship_by_name = {sh["name"]: sh for sh in msp_shipments}
+    msp_auto_notes = []
+    for l in msp_lines:
+        sh = _ship_by_name.get(l["shipment"])
+        if not sh:
+            continue
+        baf_empty = l["baf_per_teu"] is None or pd.isna(l["baf_per_teu"])
+        efs_empty = l["efs_per_teu"] is None or pd.isna(l["efs_per_teu"])
+        if not (baf_empty or efs_empty):
+            continue
+        entry = lookup_surcharge(BAF_RATES, sh["carrier"], sh["pod"]) if l["container_size"] != "MPP / Breakbulk" else None
+        if entry:
+            # table is in USD; convert to the line currency
+            fx = usd_to_eur if str(l["currency"]).upper().startswith("EUR") else 1.0
+            if baf_empty:
+                l["baf_per_teu"] = float(entry["baf_usd_per_teu"]) * fx
+            if efs_empty:
+                l["efs_per_teu"] = float(entry.get("efs_usd_per_teu") or 0.0) * fx
+            msp_auto_notes.append(f"{l['shipment']} / {l['equipment']}: {entry['carrier']} {entry['lane']} — "
+                                  f"{entry.get('baf_name') or 'BAF'} ${entry['baf_usd_per_teu']}/TEU"
+                                  + (f", EFS ${entry['efs_usd_per_teu']}/TEU" if entry.get('efs_usd_per_teu') else "")
+                                  + f" (effective {entry.get('effective_from') or '-'})")
+        else:
+            if baf_empty:
+                l["baf_per_teu"] = 0.0
+                msp_auto_notes.append(f"{l['shipment']} / {l['equipment']}: no surcharge on file for "
+                                      f"{sh['carrier'] or 'this carrier'} to this POD — BAF set to 0, please enter it.")
+            if efs_empty:
+                l["efs_per_teu"] = 0.0
+    if msp_auto_notes:
+        with st.expander(f"📡 Fuel surcharges auto-filled from the monthly table ({len(msp_auto_notes)})"):
+            for n in msp_auto_notes:
+                st.markdown(f"- {n}")
 
     msp_exw = {"BESS": bess_exw, "OOG": oog_exw, "MVS": mvs_exw, "Transformer": transformer_exw,
                "Accessory": access_exw, "Solar": solar_exw}
@@ -1015,6 +1154,7 @@ with tab8:
         applied_vat=applied_vat, vat_recovery_pct=vat_recovery_pct, dest_country_code=dest_code,
         project_level_costs_usd=msp_project_level, contingency_pct=contingency_pct,
         decommissioning_pv_usd=results["decommissioning_pv_usd"],
+        ten_ft_teu_factor=ten_ft_teu,
     )
 
     msp_mult = usd_to_eur if is_eur_display else 1.0
@@ -1053,7 +1193,10 @@ with tab8:
             "Transit (Days)": r["transit_days"] if r["transit_days"] is not None else "",
             "Equipment Value": _fmt(r["goods_value"]),
             "Origin Charges": _fmt(r["origin_charges"]),
-            "Ocean Freight + BAF": _fmt(r["freight"] + r["baf"]),
+            "TEU": f"{r['teu']:g}",
+            "Ocean Freight": _fmt(r["freight"]),
+            "BAF": _fmt(r["baf"]),
+            "EFS": _fmt(r["efs"]),
             "Insurance": _fmt(r["insurance"]),
             "Customs Duty": _fmt(r["duty"]),
             "Dest. THC": _fmt(r["dthc"]),

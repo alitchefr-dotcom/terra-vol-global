@@ -291,6 +291,18 @@ EQUIPMENT_DUTY_GROUP = {
 }
 SERVICE_TYPES = ["Container Line - SOC", "Container Line - COC", "MPP Vessel"]
 
+# Container sizes and how many TEU a carrier bills for each (BAF / EFS are published per TEU).
+# A 10' box normally takes a 20' slot on a container vessel, so it is billed as 1 TEU by default.
+CONTAINER_SIZES = ["10ft", "20ft", "40ft", "40ft HC", "MPP / Breakbulk"]
+DEFAULT_TEU_FACTORS = {"10ft": 1.0, "20ft": 1.0, "40ft": 2.0, "40ft HC": 2.0, "MPP / Breakbulk": 1.0}
+
+
+def teu_factor(size, ten_ft_factor=1.0):
+    """TEU billed per container. MPP / Breakbulk returns 1.0 (surcharge entered per unit)."""
+    if size == "10ft":
+        return ten_ft_factor
+    return DEFAULT_TEU_FACTORS.get(size, 1.0)
+
 
 def _num(value, default=0.0):
     try:
@@ -314,13 +326,17 @@ def calculate_shipment_plan(
     insurance_pct=0.15, customs_duty_pct=2.7, mvs_customs_duty_pct=0.0,
     applied_vat=19.0, vat_recovery_pct=100.0, dest_country_code="RO",
     project_level_costs_usd=0.0, contingency_pct=5.0, decommissioning_pv_usd=0.0,
+    ten_ft_teu_factor=1.0,
 ):
     """
     shipments: list of dicts with keys
         name, carrier, service, origin, pod, etd, eta, currency,
         origin_charges_per_unit, port_days, free_days, daily_rate_per_unit, extra_lump_sum
     lines: list of dicts with keys
-        shipment, equipment, qty, currency, freight_per_unit, baf_per_unit, dthc_per_unit, trucking_per_unit
+        shipment, equipment, qty, currency, container_size, freight_per_unit,
+        baf_per_teu, apply_efs, efs_per_teu, dthc_per_unit, trucking_per_unit
+        (BAF / EFS are per TEU and multiplied by the TEU factor of the container size;
+         for "MPP / Breakbulk" they are per unit.)
     exw_usd_per_type: {equipment_type: EXW value per unit in USD}
     required_units:   {equipment_type: units required by the project}
     """
@@ -337,7 +353,8 @@ def calculate_shipment_plan(
         units = 0
         goods_value = 0.0
         value_general = value_mvs = 0.0
-        freight = baf = dthc = trucking = 0.0
+        freight = baf = efs = dthc = trucking = 0.0
+        teu_total = 0.0
         units_by_type = {}
 
         for l in s_lines:
@@ -359,12 +376,16 @@ def calculate_shipment_plan(
                 value_mvs += v
 
             freight += qty * to_usd(_num(l.get("freight_per_unit")), cur_l, usd_to_eur)
-            baf += qty * to_usd(_num(l.get("baf_per_unit")), cur_l, usd_to_eur)
+            teu = teu_factor(l.get("container_size", "20ft"), ten_ft_teu_factor)
+            teu_total += qty * teu
+            baf += qty * teu * to_usd(_num(l.get("baf_per_teu")), cur_l, usd_to_eur)
+            if l.get("apply_efs"):
+                efs += qty * teu * to_usd(_num(l.get("efs_per_teu")), cur_l, usd_to_eur)
             dthc += qty * to_usd(_num(l.get("dthc_per_unit")), cur_l, usd_to_eur)
             trucking += qty * to_usd(_num(l.get("trucking_per_unit")), cur_l, usd_to_eur)
 
         origin_charges = units * to_usd(_num(s.get("origin_charges_per_unit")), cur_s, usd_to_eur)
-        ocean_total = freight + baf
+        ocean_total = freight + baf + efs
 
         cif_base = goods_value + origin_charges + ocean_total
         insurance = cif_base * (insurance_pct / 100.0)
@@ -404,7 +425,7 @@ def calculate_shipment_plan(
             "etd": etd, "eta": eta, "transit_days": transit_days,
             "units": units, "units_by_type": units_by_type,
             "goods_value": goods_value, "origin_charges": origin_charges,
-            "freight": freight, "baf": baf, "insurance": insurance, "duty": duty,
+            "freight": freight, "baf": baf, "efs": efs, "teu": teu_total, "insurance": insurance, "duty": duty,
             "dthc": dthc, "trucking": trucking,
             "overdue_days": overdue_days, "port_delay": port_delay, "delay_label": delay_label,
             "extra": extra, "vat": vat,
@@ -442,6 +463,7 @@ def calculate_shipment_plan(
         "logistics_total_ex_vat": sum(r["logistics_ex_vat"] for r in results),
         "goods_total": sum(r["goods_value"] for r in results),
         "port_delay_total": sum(r["port_delay"] for r in results),
+        "efs_total": sum(r["efs"] for r in results),
         "project_level_costs": project_level_costs_usd,
         "contingency": contingency,
         "landed_ex_vat": landed_ex_vat,
