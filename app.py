@@ -367,7 +367,48 @@ transformer_exw = transformer_exw_input * to_usd_factor
 access_exw = access_exw_input * to_usd_factor
 solar_exw = solar_exw_input * to_usd_factor
 
-bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh):", min_value=0.5, value=4.0, step=0.5)
+with tab1:
+    st.markdown("---")
+    st.markdown("#### Energy & Power Capacity")
+    ec1, ec2, ec3 = st.columns(3)
+    with ec1:
+        bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh, DC nameplate):", min_value=0.5, value=4.0, step=0.5)
+    with ec2:
+        project_mwac = st.number_input("Project Power (MWac) — optional:", min_value=0.0, value=0.0, step=1.0,
+                                       help="Inverter / PCS AC rating at the point of interconnection. Leave 0 to hide $/kW.")
+    with ec3:
+        project_mwh_ac = st.number_input("Usable Energy at POI (MWh AC) — optional:", min_value=0.0, value=0.0, step=1.0,
+                                         help="Contracted usable AC energy at the point of interconnection. Leave 0 to hide $/kWh AC.")
+    project_kwh_dc = bess_count * bess_capacity_mwh * 1000.0
+    st.caption(f"Project DC nameplate energy: **{project_kwh_dc / 1000.0:,.1f} MWh** "
+               f"({bess_count} BESS × {bess_capacity_mwh:g} MWh). Cost-per-kWh metrics use this as the default basis.")
+
+
+def render_unit_cost_metrics(logistics_usd, landed_usd, exw_usd, mult, code, label_suffix=""):
+    """Industry KPIs: cost per kWh / MWh on DC nameplate, plus optional AC usable energy and $/kW."""
+    sym = "€" if code == "EUR" else "$"
+    if project_kwh_dc <= 0:
+        st.info("Add BESS containers and capacity (Equipment tab) to see cost per kWh / MWh.")
+        return
+    st.markdown(f"##### Unit Cost KPIs — basis: DC nameplate {project_kwh_dc / 1000.0:,.1f} MWh{label_suffix}")
+    k1, k2, k3 = st.columns(3)
+    for col, title, val in [
+        (k1, "Logistics & Import Cost", logistics_usd),
+        (k2, "Total Landed Cost", landed_usd),
+        (k3, "Equipment EXW", exw_usd),
+    ]:
+        per_kwh = val * mult / project_kwh_dc
+        col.metric(f"{title} per kWh (DC)", f"{sym} {per_kwh:,.2f}", help=f"{sym} {per_kwh * 1000:,.0f} per MWh")
+        col.caption(f"= {sym} {per_kwh * 1000:,.0f} / MWh")
+    if project_mwh_ac > 0 or project_mwac > 0:
+        a1, a2, a3 = st.columns(3)
+        if project_mwh_ac > 0:
+            a1.metric("Landed Cost per kWh (AC usable at POI)", f"{sym} {landed_usd * mult / (project_mwh_ac * 1000):,.2f}")
+            a2.metric("Logistics & Import per kWh (AC usable)", f"{sym} {logistics_usd * mult / (project_mwh_ac * 1000):,.2f}")
+        if project_mwac > 0:
+            a3.metric("Landed Cost per kW (AC)", f"{sym} {landed_usd * mult / (project_mwac * 1000):,.0f}")
+
+
 with tab2:
     st.subheader("Ocean Freight, BAF & Destination THC")
     
@@ -908,6 +949,15 @@ with tab7:
     m3.metric(f"Total Cash Requirement ({curr_code})", format_currency(cash_disp, curr_code))
     m4.metric("Estimated Carbon Footprint", f"{total_carbon_tons:,.1f} t CO2")
 
+    _pdc_usd = results["total_landed_cost_ex_vat"] / (1 + contingency_pct / 100.0)
+    render_unit_cost_metrics(
+        logistics_usd=_pdc_usd - results["trended_exw"],
+        landed_usd=results["total_landed_cost_ex_vat"],
+        exw_usd=results["trended_exw"],
+        mult=disp_mult, code=curr_code)
+    st.caption("Logistics & Import Cost = origin charges, ocean freight & surcharges, insurance, duty, port, inland "
+               "transport, permits and compliance — excluding equipment value, contingency and VAT.")
+
     st.markdown("---")
     st.markdown("#### Project Budget & Carbon Footprint Breakdown")
     
@@ -1235,6 +1285,11 @@ with tab8:
     t2.metric("Total Landed Cost (ex VAT)", format_currency(plan["landed_ex_vat"] * msp_mult, curr_code))
     t3.metric("Total Cash Requirement (incl. VAT)", format_currency(plan["cash_incl_vat"] * msp_mult, curr_code))
     t4.metric("Total Economic Cost", format_currency(plan["economic_cost"] * msp_mult, curr_code))
+    render_unit_cost_metrics(
+        logistics_usd=plan["logistics_total_ex_vat"] + plan["project_level_costs"],
+        landed_usd=plan["landed_ex_vat"],
+        exw_usd=plan["goods_total"],
+        mult=msp_mult, code=curr_code, label_suffix=" (all shipments)")
 
     summary_rows = [
         {"Item": "Equipment value (EXW × trend)", "Amount": _fmt(plan["goods_total"])},
