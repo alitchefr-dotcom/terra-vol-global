@@ -763,12 +763,9 @@ with tab5:
     }
 
     route_countries = list(EUROPEAN_LOGISTICS_HUB.keys()) + ["Israel"]
-    selected_country = st.selectbox(
-        "Select Target Project Destination Country:",
-        route_countries,
-        index=route_countries.index(destination_country) if destination_country in route_countries else 0,
-        key="smart_destination_country"
-    )
+    # Always follow the destination country chosen in the sidebar (single source of truth)
+    selected_country = destination_country
+    st.markdown(f"**Destination country:** {destination_country} *(change it in the sidebar)*")
 
     china_ports = [
         "Shanghai (China)", 
@@ -848,6 +845,10 @@ with tab5:
         if not has_toxins_permit:
             st.warning("Reminder: without a Toxins Permit BESS cannot be released from an external storage terminal — "
                        "keep this in mind when comparing ports with off-port storage yards.")
+    elif selected_country not in EUROPEAN_LOGISTICS_HUB:
+        st.info(f"Route options for **{selected_country}** are not available yet. "
+                f"Currently covered: {', '.join(route_countries)}. "
+                "Use the Multi-Shipment Planner to cost specific routes for this country.")
     else:
         country_info = EUROPEAN_LOGISTICS_HUB[selected_country]
         routing_results = []
