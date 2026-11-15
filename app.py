@@ -80,8 +80,18 @@ EUROPEAN_VAT_RATES = {
     "Austria": 20.0,
     "Czech Republic": 21.0,
     "Slovakia": 20.0,
-    "Croatia": 25.0
+    "Croatia": 25.0,
+    "Israel": 18.0
 }
+# Israeli sea ports (Mediterranean + Red Sea)
+ISRAEL_PORTS = [
+    "Haifa Bay Port (SIPG), Israel",
+    "Haifa Port (Adani), Israel",
+    "Israel Shipyards Port (Haifa), Israel",
+    "Ashdod Port, Israel",
+    "TIL - Hadarom South Port (Ashdod), Israel",
+    "Eilat Port, Israel",
+]
 # Comprehensive Logistics Network Matrix for Europe, Aegean, Saronic, Black Sea & Adriatic
 LOGISTICS_NETWORK = {
     "Shanghai (China)": {
@@ -229,7 +239,9 @@ destination_country = st.sidebar.selectbox(
     index=0
 )
 
-dest_code = destination_country[:2].upper()
+COUNTRY_CODES = {"Israel": "IL"}
+dest_code = COUNTRY_CODES.get(destination_country, destination_country[:2].upper())
+is_israel = (dest_code == "IL")
 
 all_european_ports = [
     "Constanța, Romania", "Varna, Bulgaria", "Burgas, Bulgaria", 
@@ -240,6 +252,7 @@ all_european_ports = [
     "Rotterdam, Netherlands", "Antwerp, Belgium", 
     "Helsinki / Kotka, Finland", "Valencia, Spain", "Marseille, France"
 ]
+destination_ports = ISRAEL_PORTS if is_israel else all_european_ports
 
 # --- MAIN PAGE HEADER ---
 col_title, col_logo = st.columns([4, 1])
@@ -327,7 +340,7 @@ with tab2:
             "Guangzhou, China - Nansha Port"
         ])
     with col_sc2:
-        dest_port = st.selectbox(f"Selected Port of Destination (POD) for {destination_country}:", options=all_european_ports, index=0)
+        dest_port = st.selectbox(f"Selected Port of Destination (POD) for {destination_country}:", options=destination_ports, index=0)
         incoterm_code = st.selectbox("Incoterm:", options=["EXW", "FOB", "CFR", "CIF", "DAP", "DDP"], index=3)
 
     st.markdown("---")
@@ -391,10 +404,14 @@ with tab2:
     cc1, cc2 = st.columns(2)
     with cc1:
         insurance_pct = st.number_input("Marine Insurance Rate (% of CIF):", min_value=0.0, value=0.15, step=0.05)
-        customs_duty_pct = st.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=2.7, step=0.1)
+        customs_duty_pct = st.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=(0.0 if is_israel else 2.7), step=0.1)
     with cc2:
         mvs_customs_duty_pct = st.number_input("Customs Duty Rate (%) - MVS / Transformers:", min_value=0.0, value=0.0, step=0.1)
-        st.info("Solar PV / Inverters are automatically 0% exempt under EU green energy trade regulations.")
+        if is_israel:
+            st.info("🇮🇱 Israel: no customs duty on BESS, MVS or transformers (default 0%). "
+                    "Solar PV / Inverters are calculated at 0%. Verify the HS classification with your customs broker.")
+        else:
+            st.info("Solar PV / Inverters are automatically 0% exempt under EU green energy trade regulations.")
 
 with tab3:
     st.subheader("Port Storage, Demurrage & Inland Drayage (Heavy & Hazardous)")
@@ -442,15 +459,62 @@ with tab3:
 with tab4:
     st.subheader("Regulation, Sustainability & Decommissioning")
     
-    col_t1, col_t2 = st.columns(2)
-    with col_t1:
-        bp_val = st.number_input(f"Total Battery Passport Cost ({curr_code}):", min_value=0.0, value=10000.0 * dr_mult, step=1000.0)
-        epr_val = st.number_input(f"Ongoing EPR Fee per BESS unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
-    with col_t2:
-        include_regulatory = st.checkbox("Include local site entry permits", value=True)
-        perm_val = st.number_input(f"Local Permits Cost ({curr_code}):", min_value=0.0, value=5000.0 * dr_mult, step=500.0) if include_regulatory else 0.0
-        include_mot_approval = st.checkbox("Include National/Local Approval Fees", value=False)
-        mot_val = st.number_input(f"Approval Fees Cost ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=500.0) if include_mot_approval else 0.0
+    has_toxins_permit = True  # only relevant for Israel
+    include_decom_israel = False
+    if is_israel:
+        st.markdown("#### 🇮🇱 Israel — Import & Transport Regulation")
+
+        st.markdown("##### 1. Toxins Permit (היתר רעלים) — Ministry of Environmental Protection")
+        has_toxins_permit = st.checkbox("Importer holds a valid Toxins Permit (היתר רעלים) for lithium-ion BESS", value=False)
+        if not has_toxins_permit:
+            st.error(
+                "⚠️ **Toxins Permit required — action needed by the importer.**\n\n"
+                "* The Ministry of Environmental Protection now requires a Toxins Permit (היתר רעלים) **from the importer** as well.\n"
+                "* **Without it, BESS units cannot be released from an external storage terminal** "
+                "(e.g. if the containers are moved from the port to a bonded/external yard).\n"
+                "* Israel Customs also requires a Toxins Permit from the importer — **not yet enforced, but enforcement may start at any time.**\n"
+                "* Apply well before the first vessel arrives; missing the permit can mean extra storage days and demurrage."
+            )
+        else:
+            st.success("✅ Toxins Permit confirmed. Make sure it is valid for the whole delivery period and covers storage/handling of lithium-ion batteries.")
+        toxins_val = st.number_input(f"Toxins Permit — one-time cost (application, consultant, toxins officer) ({curr_code}):",
+                                     min_value=0.0, value=0.0, step=500.0)
+
+        st.markdown("##### 2. Ministry of Transport — Oversize / Heavy Transport Permit per BESS Container")
+        st.info(
+            f"Every BESS container requires a transport permit from the Ministry of Transport (היתר הובלה) "
+            f"for the port-to-site haul — **{bess_count} permit(s)** for this project. "
+            "Currently there is no fee, but submit the requests early so trucks are not held at the port."
+        )
+        mot_per_unit_val = st.number_input(f"MoT transport permit cost per BESS container ({curr_code}):",
+                                           min_value=0.0, value=0.0, step=50.0)
+        include_mot_approval = True
+        mot_val = mot_per_unit_val * bess_count
+
+        st.markdown("##### 3. Site Permits & Other Costs")
+        st.caption("Site works permits (building, fire department, electrical, etc.) are normally the EPC / site contractor's "
+                   "responsibility and are not included unless entered below.")
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            other_permits_val = st.number_input(f"Other permits / consultants ({curr_code}):", min_value=0.0, value=0.0, step=500.0)
+        with col_t2:
+            epr_val = st.number_input(
+                f"Battery recycling / EPR fee per BESS unit ({curr_code}):", min_value=0.0, value=0.0, step=50.0,
+                help="Israeli e-waste & batteries law — recycling through a recognised body (e.g. M.A.I / T.M.I). "
+                     "Check with the recycling body whether it applies to your BESS units.")
+        include_regulatory = True
+        perm_val = toxins_val + other_permits_val
+        bp_val = 0.0  # EU Battery Passport does not apply in Israel
+    else:
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            bp_val = st.number_input(f"Total Battery Passport Cost ({curr_code}):", min_value=0.0, value=10000.0 * dr_mult, step=1000.0)
+            epr_val = st.number_input(f"Ongoing EPR Fee per BESS unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
+        with col_t2:
+            include_regulatory = st.checkbox("Include local site entry permits", value=True)
+            perm_val = st.number_input(f"Local Permits Cost ({curr_code}):", min_value=0.0, value=5000.0 * dr_mult, step=500.0) if include_regulatory else 0.0
+            include_mot_approval = st.checkbox("Include National/Local Approval Fees", value=False)
+            mot_val = st.number_input(f"Approval Fees Cost ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=500.0) if include_mot_approval else 0.0
 
     if is_eur_display:
         battery_passport_total_usd = bp_val / usd_to_eur
@@ -465,6 +529,9 @@ with tab4:
 
     st.markdown("---")
     st.markdown("#### Decommissioning & End-of-Life Financial Provision (EU Regulation Framework)")
+    if is_israel:
+        include_decom_israel = st.checkbox(
+            "Include a decommissioning provision in the Israel budget (optional — EU framework does not apply)", value=False)
     st.info("Future Provision (Benchmark 59–90 USD/kWh)")
     
     decom_scenario_choice = st.selectbox("Decommissioning Scenario Preset:", options=["Custom", "low (59 $/kWh)", "base (75 $/kWh)", "high (90 $/kWh)"], index=2)
@@ -555,15 +622,14 @@ with tab5:
         }
     }
 
+    route_countries = list(EUROPEAN_LOGISTICS_HUB.keys()) + ["Israel"]
     selected_country = st.selectbox(
         "Select Target Project Destination Country:",
-        list(EUROPEAN_LOGISTICS_HUB.keys()),
+        route_countries,
+        index=route_countries.index(destination_country) if destination_country in route_countries else 0,
         key="smart_destination_country"
     )
 
-    country_info = EUROPEAN_LOGISTICS_HUB[selected_country]
-    
-    routing_results = []
     china_ports = [
         "Shanghai (China)", 
         "Ningbo (China)", 
@@ -572,26 +638,99 @@ with tab5:
         "Xingang / Tianjin (China)"
     ]
 
-    for gw in country_info["gateways"]:
-        for china_port in china_ports:
-            routing_results.append({
-                "Origin Port (China)": china_port,
-                "European Gateway": gw["port"],
-                "Destination Site": country_info["site_name"],
-                "Ocean Transit (Days)": gw["ocean_days"],
-                "Inland Trucking Distance (km)": gw["inland_dist_km"],
-                "Inland Trucking Days": gw["inland_days"],
-                "Total Transit (Days)": gw["ocean_days"] + gw["inland_days"],
-                "Base Trucking Cost (€)": gw["cost"],
-                "Status": "Active & Verified"
-            })
+    if selected_country == "Israel":
+        # Road distance (km) from each port cluster to each site region — indicative, editable below
+        ISRAEL_REGIONS = {
+            "North — Haifa / Galilee / Jezreel Valley": {"Haifa": 40, "Ashdod": 160, "Eilat": 400},
+            "Center — Sharon / Gush Dan / Shfela": {"Haifa": 100, "Ashdod": 50, "Eilat": 330},
+            "South — Negev / Be'er Sheva / Dimona": {"Haifa": 210, "Ashdod": 90, "Eilat": 230},
+            "Arava / Eilat": {"Haifa": 400, "Ashdod": 300, "Eilat": 30},
+        }
+        ISRAEL_PORT_CLUSTER = {
+            "Haifa Bay Port (SIPG), Israel": ("Haifa", 38),
+            "Haifa Port (Adani), Israel": ("Haifa", 38),
+            "Israel Shipyards Port (Haifa), Israel": ("Haifa", 38),
+            "Ashdod Port, Israel": ("Ashdod", 38),
+            "TIL - Hadarom South Port (Ashdod), Israel": ("Ashdod", 38),
+            "Eilat Port, Israel": ("Eilat", 22),
+        }
 
-    if routing_results:
-        df_routes = pd.DataFrame(routing_results)
-        st.dataframe(df_routes, use_container_width=True, hide_index=True)
-        st.success(f"Smart Agent successfully mapped routing alternatives for {selected_country}.")
+        ir1, ir2, ir3 = st.columns(3)
+        with ir1:
+            il_region = st.selectbox("Project Site Region (Israel):", list(ISRAEL_REGIONS.keys()), key="il_route_region")
+        with ir2:
+            il_base_cost = st.number_input("Heavy-haul base cost per BESS unit (USD):", min_value=0.0, value=1500.0, step=100.0, key="il_base_cost")
+        with ir3:
+            il_km_rate = st.number_input("Heavy-haul rate per km per BESS unit (USD):", min_value=0.0, value=12.0, step=1.0, key="il_km_rate")
+
+        st.caption("Ocean transit days and road distances are **indicative defaults** — edit them in the table to match "
+                   "current carrier schedules (Suez vs. Cape routing) and the exact site location. "
+                   "Check that the Eilat port currently has a service for your cargo before relying on it.")
+
+        il_defaults = pd.DataFrame([
+            {"Israeli Port": port,
+             "Ocean Transit from China (Days)": days,
+             "Road Distance to Site (km)": ISRAEL_REGIONS[il_region][cluster]}
+            for port, (cluster, days) in ISRAEL_PORT_CLUSTER.items()
+        ])
+        il_edit = st.data_editor(
+            il_defaults, key=f"il_routes_{il_region}", hide_index=True, use_container_width=True,
+            disabled=["Israeli Port"],
+            column_config={
+                "Ocean Transit from China (Days)": st.column_config.NumberColumn(min_value=0, step=1),
+                "Road Distance to Site (km)": st.column_config.NumberColumn(min_value=0, step=5),
+            },
+        )
+
+        il_rows = []
+        for _, r in il_edit.iterrows():
+            km = float(r["Road Distance to Site (km)"] or 0)
+            ocean = int(r["Ocean Transit from China (Days)"] or 0)
+            inland_days = 1 if km <= 150 else 2
+            cost_unit = il_base_cost + il_km_rate * km
+            il_rows.append({
+                "Israeli Port": r["Israeli Port"],
+                "Destination Site": il_region,
+                "Ocean Transit (Days)": ocean,
+                "Road Distance (km)": int(km),
+                "Inland Days (night convoy)": inland_days,
+                "Total Transit (Days)": ocean + inland_days,
+                "Trucking per BESS (USD)": round(cost_unit),
+                f"Trucking — {bess_count} BESS (USD)": round(cost_unit * bess_count),
+                "MoT Transport Permits": f"{bess_count} required",
+            })
+        il_df = pd.DataFrame(il_rows).sort_values(by=["Trucking per BESS (USD)", "Total Transit (Days)"])
+        st.markdown("#### Port-to-Site Options — sorted by trucking cost")
+        st.dataframe(il_df, use_container_width=True, hide_index=True)
+        best = il_df.iloc[0]
+        st.success(f"Lowest trucking cost: **{best['Israeli Port']}** — {best['Road Distance (km)']} km to site, "
+                   f"total transit ≈ {best['Total Transit (Days)']} days.")
+        if not has_toxins_permit:
+            st.warning("Reminder: without a Toxins Permit (היתר רעלים) BESS cannot be released from an external storage terminal — "
+                       "keep this in mind when comparing ports with off-port storage yards.")
     else:
-        st.info("No routing options available for this selection.")
+        country_info = EUROPEAN_LOGISTICS_HUB[selected_country]
+        routing_results = []
+        for gw in country_info["gateways"]:
+            for china_port in china_ports:
+                routing_results.append({
+                    "Origin Port (China)": china_port,
+                    "European Gateway": gw["port"],
+                    "Destination Site": country_info["site_name"],
+                    "Ocean Transit (Days)": gw["ocean_days"],
+                    "Inland Trucking Distance (km)": gw["inland_dist_km"],
+                    "Inland Trucking Days": gw["inland_days"],
+                    "Total Transit (Days)": gw["ocean_days"] + gw["inland_days"],
+                    "Base Trucking Cost (€)": gw["cost"],
+                    "Status": "Active & Verified"
+                })
+
+        if routing_results:
+            df_routes = pd.DataFrame(routing_results)
+            st.dataframe(df_routes, use_container_width=True, hide_index=True)
+            st.success(f"Smart Agent successfully mapped routing alternatives for {selected_country}.")
+        else:
+            st.info("No routing options available for this selection.")
 with tab6:
     st.subheader("Infrastructure & Energy Projects Intelligence")
     st.markdown(f"**Target Market Strategy:** Active infrastructure planning and logistics intelligence for **{destination_country}**.")
@@ -599,6 +738,11 @@ with tab6:
     * **Heavy-Lift Corridor Management:** Ensuring axle-load compliance and bridge engineering surveys across main European corridors.
     * **Grid Connection Synchronisation:** Aligning MVS and transformer delivery schedules with high-voltage substation commissioning dates.
     * **Customs Compliance:** Strict adherence to EU TARIC classification for UN3536 Class 9 Lithium-Ion battery shipments.
+    """)
+    if is_israel:
+        st.markdown("""
+    * **Israel — Toxins Permit (היתר רעלים):** required from the importer by the Ministry of Environmental Protection; needed to release BESS from external storage terminals.
+    * **Israel — MoT Transport Permits:** one oversize/heavy transport permit per BESS container for the port-to-site haul.
     """)
 
 with tab7:
@@ -633,8 +777,13 @@ with tab7:
         bess_capacity_mwh=bess_capacity_mwh, decom_cost_per_kwh=net_decom_rate,
         include_oog_in_decom=include_oog_in_decom, decom_cost_currency="USD",
         usd_to_eur=usd_to_eur, years_to_decom=years_to_decom, decom_discount_rate=decom_discount_rate,
-        decom_residual_per_kwh=decom_residual_per_kwh, contingency_pct=contingency_pct
+        decom_residual_per_kwh=decom_residual_per_kwh, contingency_pct=contingency_pct,
+        apply_decommissioning=(include_decom_israel if is_israel else None)
     )
+
+    if is_israel and not has_toxins_permit:
+        st.error("⚠️ **Israel — Toxins Permit (היתר רעלים) missing.** BESS units cannot be released from an external "
+                 "storage terminal without it, and Customs may start enforcing the requirement. See the Regulation tab.")
 
     if results["decom_epr_overlap_warning"]:
         st.warning("⚠️ **Notice:** Both EPR recycling fees and Decommissioning provisions are active. Ensure there is no double-counting of end-of-life recycling scope.")
@@ -711,7 +860,10 @@ with tab8:
         "Shanghai", "Ningbo-Zhoushan", "Qingdao", "Shenzhen - Yantian",
         "Shenzhen - Shekou", "Guangzhou - Nansha", "Xingang / Tianjin", "Other"
     ]
-    POD_OPTIONS = all_european_ports + ["Other"]
+    POD_OPTIONS = destination_ports + [p for p in ISRAEL_PORTS + all_european_ports if p not in destination_ports] + ["Other"]
+    if is_israel and not has_toxins_permit:
+        st.error("⚠️ **Israel — Toxins Permit (היתר רעלים) missing.** Without it, BESS cannot be released from an external "
+                 "storage terminal. Plan extra port storage days in the shipments below until the permit is in place.")
 
     if "msp_shipments" not in st.session_state:
         st.session_state.msp_shipments = pd.DataFrame([
