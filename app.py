@@ -61,13 +61,6 @@ st.set_page_config(
     page_icon="⚡",
     layout="wide"
 )
-# --- MODE SELECTOR ---
-st.markdown("---")
-app_mode = st.radio(
-    "Select Operating Mode:",
-    ["⚡ Quick Scenario Showcase (Investor/Marketing View)", "🛠️ Advanced Manual Configuration & Routing Agent"],
-    horizontal=True
-)
 # --- CUSTOM CSS STYLING ---
 st.markdown("""
     <style>
@@ -489,6 +482,17 @@ with tab2:
         dthc_bess /= usd_to_eur; dthc_oog /= usd_to_eur; dthc_mvs /= usd_to_eur
         dthc_trans /= usd_to_eur; dthc_access /= usd_to_eur; dthc_solar /= usd_to_eur
 
+    st.markdown(f"#### 5. Origin Charges in China per Container ({curr_code})")
+    oc1, oc2 = st.columns(2)
+    with oc1:
+        origin_truck_in = st.number_input(f"Factory-to-port trucking per container ({curr_code}):", min_value=0.0,
+                                          value=round(220.0 * f_mult, 2), step=10.0)
+    with oc2:
+        origin_thc_in = st.number_input(f"Origin THC & export handling per container ({curr_code}):", min_value=0.0,
+                                        value=round(130.0 * f_mult, 2), step=10.0)
+    origin_truck_usd = origin_truck_in / usd_to_eur if is_eur_display else origin_truck_in
+    origin_thc_usd = origin_thc_in / usd_to_eur if is_eur_display else origin_thc_in
+
     st.markdown("---")
     cc1, cc2 = st.columns(2)
     with cc1:
@@ -545,6 +549,12 @@ with tab3:
     include_site_crane = st.checkbox("Include Site Crane & Unloading", value=True)
     site_crane_val = st.number_input(f"Total Crane & Unloading Cost ({curr_code}):", min_value=0.0, value=15000.0 * dr_mult, step=1000.0) if include_site_crane else 0.0
     site_crane_unloading = site_crane_val / usd_to_eur if is_eur_display else site_crane_val
+
+    st.markdown(f"#### 4. Heavy-Lift Route Survey ({curr_code})")
+    requires_heavy_lift = st.checkbox("Include heavy-lift / route survey (bridges, axle loads, turning radius)", value=True)
+    heavy_lift_val = st.number_input(f"Route survey cost ({curr_code}):", min_value=0.0, value=round(2500.0 * dr_mult, 2),
+                                     step=500.0) if requires_heavy_lift else 0.0
+    heavy_lift_usd = heavy_lift_val / usd_to_eur if is_eur_display else heavy_lift_val
 with tab4:
     st.subheader("Regulation, Sustainability & Decommissioning")
     
@@ -553,12 +563,12 @@ with tab4:
     if is_israel:
         st.markdown("#### 🇮🇱 Israel — Import & Transport Regulation")
 
-        st.markdown("##### 1. Toxins Permit (היתר רעלים) — Ministry of Environmental Protection")
-        has_toxins_permit = st.checkbox("Importer holds a valid Toxins Permit (היתר רעלים) for lithium-ion BESS", value=False)
+        st.markdown("##### 1. Toxins Permit (Hebrew: היתר רעלים) — Israel Ministry of Environmental Protection")
+        has_toxins_permit = st.checkbox("Importer holds a valid Toxins Permit for lithium-ion BESS", value=False)
         if not has_toxins_permit:
             st.error(
                 "⚠️ **Toxins Permit required — action needed by the importer.**\n\n"
-                "* The Ministry of Environmental Protection now requires a Toxins Permit (היתר רעלים) **from the importer** as well.\n"
+                "* The Ministry of Environmental Protection now requires a Toxins Permit **from the importer** as well.\n"
                 "* **Without it, BESS units cannot be released from an external storage terminal** "
                 "(e.g. if the containers are moved from the port to a bonded/external yard).\n"
                 "* Israel Customs also requires a Toxins Permit from the importer — **not yet enforced, but enforcement may start at any time.**\n"
@@ -569,9 +579,9 @@ with tab4:
         toxins_val = st.number_input(f"Toxins Permit — one-time cost (application, consultant, toxins officer) ({curr_code}):",
                                      min_value=0.0, value=0.0, step=500.0)
 
-        st.markdown("##### 2. Ministry of Transport — Oversize / Heavy Transport Permit per BESS Container")
+        st.markdown("##### 2. Ministry of Transport — Oversize / Heavy Transport Permit per BESS Container (Hebrew: היתר הובלה)")
         st.info(
-            f"Every BESS container requires a transport permit from the Ministry of Transport (היתר הובלה) "
+            f"Every BESS container requires a transport permit from the Israel Ministry of Transport "
             f"for the port-to-site haul — **{bess_count} permit(s)** for this project. "
             "Currently there is no fee, but submit the requests early so trucks are not held at the port."
         )
@@ -795,7 +805,7 @@ with tab5:
         st.success(f"Lowest trucking cost: **{best['Israeli Port']}** — {best['Road Distance (km)']} km to site, "
                    f"total transit ≈ {best['Total Transit (Days)']} days.")
         if not has_toxins_permit:
-            st.warning("Reminder: without a Toxins Permit (היתר רעלים) BESS cannot be released from an external storage terminal — "
+            st.warning("Reminder: without a Toxins Permit BESS cannot be released from an external storage terminal — "
                        "keep this in mind when comparing ports with off-port storage yards.")
     else:
         country_info = EUROPEAN_LOGISTICS_HUB[selected_country]
@@ -830,7 +840,7 @@ with tab6:
     """)
     if is_israel:
         st.markdown("""
-    * **Israel — Toxins Permit (היתר רעלים):** required from the importer by the Ministry of Environmental Protection; needed to release BESS from external storage terminals.
+    * **Israel — Toxins Permit:** required from the importer by the Ministry of Environmental Protection; needed to release BESS from external storage terminals.
     * **Israel — MoT Transport Permits:** one oversize/heavy transport permit per BESS container for the port-to-site haul.
     """)
 
@@ -859,7 +869,7 @@ with tab7:
         include_regulatory=include_regulatory, include_mot_approval=include_mot_approval,
         site_crane_unloading=site_crane_unloading, include_site_crane=include_site_crane,
         epr_recycling_total_usd=epr_recycling_total_usd, battery_passport_total_usd=battery_passport_total_usd,
-        requires_heavy_lift=True, heavy_lift_survey_cost=2500.0,
+        requires_heavy_lift=requires_heavy_lift, heavy_lift_survey_cost=heavy_lift_usd,
         actual_port_days=actual_port_days, free_days=free_days, demurrage_daily_rate=demurrage_daily_rate,
         use_external_storage=use_external_storage, ext_storage_days=ext_storage_days,
         ext_storage_daily_rate=ext_storage_daily_rate, include_delay_scenario=include_delay_scenario,
@@ -867,11 +877,12 @@ with tab7:
         include_oog_in_decom=include_oog_in_decom, decom_cost_currency="USD",
         usd_to_eur=usd_to_eur, years_to_decom=years_to_decom, decom_discount_rate=decom_discount_rate,
         decom_residual_per_kwh=decom_residual_per_kwh, contingency_pct=contingency_pct,
-        apply_decommissioning=(include_decom_israel if is_israel else None)
+        apply_decommissioning=(include_decom_israel if is_israel else None),
+        origin_trucking_per_unit=origin_truck_usd, origin_thc_per_unit=origin_thc_usd,
     )
 
     if is_israel and not has_toxins_permit:
-        st.error("⚠️ **Israel — Toxins Permit (היתר רעלים) missing.** BESS units cannot be released from an external "
+        st.error("⚠️ **Israel — Toxins Permit missing.** BESS units cannot be released from an external "
                  "storage terminal without it, and Customs may start enforcing the requirement. See the Regulation tab.")
 
     if results["decom_epr_overlap_warning"]:
@@ -885,7 +896,11 @@ with tab7:
     cash_disp = results["total_cash_requirement_incl_vat"] * disp_mult
 
     total_units_carbon = results["total_containers_project"]
-    total_carbon_tons = total_units_carbon * 9.1
+    carbon_per_unit = st.number_input(
+        "Transport CO2 factor (t CO2 per container, origin to site):", min_value=0.0, value=9.1, step=0.1,
+        help="Indicative well-to-wheel estimate for one heavy container China → Europe/Israel incl. trucking. "
+             "Replace with your carrier's emission report (e.g. GLEC-based) when available.")
+    total_carbon_tons = total_units_carbon * carbon_per_unit
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric(f"Total Landed Cost ({curr_code})", format_currency(landed_disp, curr_code))
@@ -953,7 +968,7 @@ with tab8:
     ]
     POD_OPTIONS = destination_ports + [p for p in ISRAEL_PORTS + all_european_ports if p not in destination_ports] + ["Other"]
     if is_israel and not has_toxins_permit:
-        st.error("⚠️ **Israel — Toxins Permit (היתר רעלים) missing.** Without it, BESS cannot be released from an external "
+        st.error("⚠️ **Israel — Toxins Permit missing.** Without it, BESS cannot be released from an external "
                  "storage terminal. Plan extra port storage days in the shipments below until the permit is in place.")
 
     if "msp_shipments" not in st.session_state or "Container Size" not in st.session_state.get("msp_lines", pd.DataFrame()).columns:
@@ -1234,43 +1249,5 @@ with tab8:
         "Insurance, duty, VAT, contingency and project-level costs use the settings from the other tabs. "
         "Freight rates entered here are treated as actual quotes, so the trend multiplier is applied to equipment value only."
     )
-st.markdown("---")
-st.markdown("---")
-st.markdown("### 🤖 Multi-Option Port-to-Door Routing Agent")
-
-# Collect all unique destination project sites across all ports in the matrix
-all_destinations = sorted(list(set(
-    dest 
-    for port_data in LOGISTICS_NETWORK.values() 
-    for dest in port_data["destinations"].keys()
-)))
-
-selected_target_dest = st.selectbox("Select Target Project Destination / Site:", all_destinations)
-
-st.markdown(f"#### Available Routing Alternatives for: **{selected_target_dest}**")
-
-# Scan all ports and find which ones can reach this destination
-routes_found = []
-for port_name, port_data in LOGISTICS_NETWORK.items():
-    if selected_target_dest in port_data["destinations"]:
-        route_info = port_data["destinations"][selected_target_dest]
-        routes_found.append({
-            "Origin Port": port_name,
-            "Destination": selected_target_dest,
-            "Inland Distance (km)": route_info["distance_km"],
-            "Inland Transit (Days)": route_info["transit_days"],
-            "Base Trucking Cost (USD)": route_info["base_trucking_cost"]
-        })
-
-if routes_found:
-    routes_df = pd.DataFrame(routes_found)
-    # Sort options by cheapest trucking cost first
-    routes_df = routes_df.sort_values(by="Base Trucking Cost (USD)")
-    
-    st.dataframe(routes_df, use_container_width=True, hide_index=True)
-    st.success("💡 Agent scanned all sea basins and presented all possible origin ports for this destination, sorted by cost-effectiveness.")
-else:
-    st.warning("No direct routes found for this destination in the current network matrix.")
-
 st.markdown("---")
 st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")

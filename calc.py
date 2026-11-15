@@ -99,6 +99,8 @@ def calculate_project_costs(
     decom_residual_per_kwh=0.0,
     apply_decommissioning=None,
     contingency_pct=5.0,
+    origin_trucking_per_unit=220.0,
+    origin_thc_per_unit=130.0,
 ):
     total_containers_project = max(1, bess_count + oog_count + mvs_count + transformer_count + access_count + solar_count)
 
@@ -127,8 +129,9 @@ def calculate_project_costs(
         (access_count * dthc_access) + (solar_count * dthc_solar)
     )
 
-    china_inland_drayage = 2200.0 * (total_containers_project / 10)
-    china_origin_thc = 1300.0 * (total_containers_project / 10)
+    # Origin (China) pre-carriage and origin THC per container — defaults 220 + 130 USD (= 2,200 / 1,300 per 10 units)
+    china_inland_drayage = origin_trucking_per_unit * total_containers_project
+    china_origin_thc = origin_thc_per_unit * total_containers_project
 
     inland_drayage_total_base = (
         (bess_count * drayage_bess) + (oog_count * drayage_oog) +
