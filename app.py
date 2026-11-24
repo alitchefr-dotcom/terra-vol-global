@@ -84,6 +84,9 @@ class _UI:
                 opts = list(args[0]) if args else list(kw.get("options", []))
                 if v in opts:
                     kw["index"] = opts.index(v)
+            elif kind == "multiselect":
+                opts = list(args[0]) if args else list(kw.get("options", []))
+                kw["default"] = [x for x in (v or []) if x in opts]
             elif kind == "date_input":
                 try:
                     kw["value"] = date.fromisoformat(v)
@@ -102,6 +105,8 @@ class _UI:
     def date_input(self, label, *a, **k): return self._call("date_input", label, a, k)
     def slider(self, label, *a, **k): return self._call("slider", label, a, k)
     def radio(self, label, *a, **k): return self._call("radio", label, a, k)
+    def multiselect(self, label, *a, **k): return self._call("multiselect", label, a, k)
+    def text_area(self, label, *a, **k): return self._call("text_area", label, a, k)
 
 
 ui = _UI(st)
@@ -241,6 +246,15 @@ ISRAEL_PORTS = [
     "TIL - Hadarom South Port (Ashdod), Israel",
     "Eilat Port, Israel",
 ]
+# Which vessel types each Israeli port / berth can receive
+ISRAEL_PORT_INFO = {
+    "Haifa Bay Port (SIPG), Israel": {"container": True, "charter": False},
+    "Haifa Port (Adani), Israel": {"container": True, "charter": True},
+    "Israel Shipyards Port (Haifa), Israel": {"container": False, "charter": True},
+    "Ashdod Port, Israel": {"container": True, "charter": True},
+    "TIL - Hadarom South Port (Ashdod), Israel": {"container": True, "charter": False},
+    "Eilat Port, Israel": {"container": False, "charter": True},
+}
 # Comprehensive Logistics Network Matrix for Europe, Aegean, Saronic, Black Sea & Adriatic
 LOGISTICS_NETWORK = {
     "Shanghai (China)": {
@@ -418,7 +432,8 @@ with col_logo:
 
 st.markdown("---")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "📝 Project Brief & BOM",
     "📋 Equipment Mix & Quantities",
     "🚢 Supply Chain & Incoterms",
     "📦 Storage, Demurrage & Drayage",
@@ -429,19 +444,169 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "🧩 Multi-Shipment Planner"
 ])
 
+with tab0:
+    st.subheader("📝 Project Brief — Requirements, Constraints & Bill of Materials")
+    st.markdown("Capture the client's requirements once. They drive the equipment quantities, "
+                "the checks on every sailing option and the quote.")
+
+    # ---------------- Dates ----------------
+    st.markdown("#### 1. Key Dates")
+    d1, d2, d3, d4 = st.columns(4)
+    with d1:
+        brief_exw_ready = ui.date_input("EXW Ready at Factory:", value=date(2026, 12, 18))
+    with d2:
+        brief_fob_date = ui.date_input("Planned FOB / Cargo at Port of Loading:", value=date(2026, 12, 24))
+    with d3:
+        brief_must_sail_by = ui.date_input("Must Sail By (latest ETD):", value=date(2026, 12, 31),
+                                           help="Latest departure date from the port of loading allowed by the client.")
+    with d4:
+        st.markdown(f"**Required on Site:**  \n{delivery_date.strftime('%d/%m/%Y')}")
+        st.caption("Set in the sidebar")
+    if brief_fob_date < brief_exw_ready:
+        st.warning("FOB date is earlier than the EXW ready date.")
+    if brief_must_sail_by < brief_fob_date:
+        st.error("'Must sail by' is earlier than the planned FOB date — no sailing can meet both.")
+    else:
+        st.caption(f"Sailing window: **{brief_fob_date.strftime('%d/%m/%Y')} – {brief_must_sail_by.strftime('%d/%m/%Y')}** "
+                   f"({(brief_must_sail_by - brief_fob_date).days} days).")
+
+    # ---------------- Constraints ----------------
+    st.markdown("#### 2. Client Requirements & Constraints")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        req_direct_only = ui.checkbox("Direct sailing only — no transshipment", value=True)
+        req_no_red_sea = ui.checkbox("No Red Sea / Suez Canal routing (Cape of Good Hope)", value=True)
+    with c2:
+        insurance_by_client = ui.checkbox("Marine insurance arranged by the client (exclude from costs)", value=True)
+        req_split_quotes = ui.checkbox("Separate quote per vessel / batch", value=True)
+    with c3:
+        max_bess_per_vessel = ui.number_input("Max BESS units per vessel (insurer limit, 0 = none):",
+                                              min_value=0, value=23, step=1)
+    special_handling = ui.text_area(
+        "Special handling instructions (manufacturer):",
+        value="Vertical lift only, no dragging. Container upright and level throughout transport. "
+              "Secured with suitable twist-locks and lashings on board.", height=80)
+
+    # ---------------- Ports ----------------
+    st.markdown("#### 3. Ports of Discharge to Quote")
+    brief_pods = ui.multiselect("Ports of discharge (POD):", options=destination_ports,
+                                default=[p for p in destination_ports if "Haifa Port" in p or p.startswith("Ashdod Port")]
+                                or destination_ports[:1])
+    if is_israel:
+        st.dataframe(pd.DataFrame([
+            {"Port / Berth": p.replace(", Israel", ""),
+             "Container vessels": "✅" if ISRAEL_PORT_INFO[p]["container"] else "—",
+             "Charter / MPP / breakbulk": "✅" if ISRAEL_PORT_INFO[p]["charter"] else "—",
+             "Selected": "⭐" if p in brief_pods else ""}
+            for p in ISRAEL_PORTS]), use_container_width=True, hide_index=True)
+        st.caption("Israel: 4 container ports (Haifa Bay, Haifa/Adani, Ashdod, Hadarom/TIL) plus berths for charter "
+                   "and MPP vessels. Sailing options are checked against the vessel type each port can receive.")
+
+    # ---------------- BOM ----------------
+    st.markdown("#### 4. Bill of Materials (BOM)")
+    st.caption("One line per model. 'Equipment Type' links the line to the cost engine. Weight = gross weight per unit "
+               "incl. container. Energy only for BESS lines.")
+    if "bom_df" not in st.session_state:
+        st.session_state.bom_df = pd.DataFrame([
+            {"Item": "BESS container, 4h", "Model": "BESS-5MWh-20SOC", "Equipment Type": "BESS", "Qty": 45,
+             "Container": "20ft", "SOC": True, "L (mm)": 6058, "W (mm)": 2438, "H (mm)": 2896,
+             "Gross Weight (t)": 42.5, "DG Class": "UN3536 Class 9", "Energy per Unit (MWh)": 5.015},
+            {"Item": "Medium Voltage Station", "Model": "MVS-5MW-20SOC", "Equipment Type": "MVS", "Qty": 9,
+             "Container": "20ft", "SOC": True, "L (mm)": 6058, "W (mm)": 2438, "H (mm)": 2896,
+             "Gross Weight (t)": 17.4, "DG Class": "", "Energy per Unit (MWh)": 0.0},
+        ])
+    bom_edit = st.data_editor(
+        st.session_state.bom_df, key="bom_editor", num_rows="dynamic", hide_index=True, use_container_width=True,
+        column_config={
+            "Equipment Type": st.column_config.SelectboxColumn("Equipment Type", options=EQUIPMENT_TYPES, required=True),
+            "Container": st.column_config.SelectboxColumn("Container", options=CONTAINER_SIZES, required=True),
+            "SOC": st.column_config.CheckboxColumn("SOC", help="Shipper-owned container"),
+            "Qty": st.column_config.NumberColumn("Qty", min_value=0, step=1),
+            "Gross Weight (t)": st.column_config.NumberColumn("Gross Weight (t)", min_value=0.0, step=0.1, format="%.1f"),
+            "Energy per Unit (MWh)": st.column_config.NumberColumn("Energy per Unit (MWh)", min_value=0.0, step=0.1, format="%.3f"),
+            "DG Class": st.column_config.TextColumn("DG Class", help="e.g. UN3536 Class 9; empty if not dangerous goods"),
+        },
+    )
+    bom_sync = ui.checkbox("Use BOM quantities in all calculations", value=True)
+
+    # Totals per equipment type and checks
+    bom_totals, bom_rows, _bess_mwh_sum, _bess_units = {}, [], 0.0, 0
+    STD_MAX_GROSS_T = 30.48   # ISO standard max gross for 20ft / 40ft
+    TRUCK_TARE_T, ROAD_LIMIT_T = 15.0, 44.0
+    total_weight_t = total_teu_bom = 0.0
+    for _, r in bom_edit.iterrows():
+        typ = r.get("Equipment Type")
+        qty = int(pd.to_numeric(r.get("Qty"), errors="coerce") or 0) if not pd.isna(pd.to_numeric(r.get("Qty"), errors="coerce")) else 0
+        if typ not in EQUIPMENT_TYPES or qty <= 0:
+            continue
+        w = float(pd.to_numeric(r.get("Gross Weight (t)"), errors="coerce") or 0) if not pd.isna(pd.to_numeric(r.get("Gross Weight (t)"), errors="coerce")) else 0.0
+        mwh = float(pd.to_numeric(r.get("Energy per Unit (MWh)"), errors="coerce") or 0) if not pd.isna(pd.to_numeric(r.get("Energy per Unit (MWh)"), errors="coerce")) else 0.0
+        size = r.get("Container") if r.get("Container") in CONTAINER_SIZES else "20ft"
+        bom_totals[typ] = bom_totals.get(typ, 0) + qty
+        if typ == "BESS":
+            _bess_mwh_sum += qty * mwh
+            _bess_units += qty
+        total_weight_t += qty * w
+        total_teu_bom += qty * teu_factor(size, 1.0)
+        flags = []
+        if size != "MPP / Breakbulk" and w > STD_MAX_GROSS_T:
+            flags.append(f"Heavy box ({w:g} t > {STD_MAX_GROSS_T} t standard) — needs carrier & terminal heavy acceptance, "
+                         "heavy-lift surcharge, special-rated SOC")
+        if w + TRUCK_TARE_T > ROAD_LIMIT_T:
+            flags.append("Abnormal road load — " + ("MoT transport permit per unit" if is_israel else "national abnormal-load permit"))
+        dg = str(r.get("DG Class") or "").strip()
+        if dg and dg.lower() not in ("nan", "none", "—", "-"):
+            flags.append(f"Dangerous goods ({dg}) — DG declaration, DG acceptance, DG yard at origin")
+        bom_rows.append({"Item": r.get("Item"), "Qty": qty, "Type": typ, "Container": size, "Weight / Unit (t)": w,
+                         "Checks": " · ".join(flags) if flags else "✅ Standard"})
+    bom_bess_mwh = round(_bess_mwh_sum / _bess_units, 3) if _bess_units else 0.0
+
+    if bom_rows:
+        st.dataframe(pd.DataFrame(bom_rows), use_container_width=True, hide_index=True)
+    s1, s2, s3, s4 = st.columns(4)
+    s1.metric("Units", f"{sum(bom_totals.values())}")
+    s2.metric("Total Gross Weight", f"{total_weight_t:,.1f} t")
+    s3.metric("Volume", f"{total_teu_bom:g} TEU")
+    s4.metric("BESS Energy (DC)", f"{_bess_mwh_sum:,.1f} MWh")
+
+    _bess_total = bom_totals.get("BESS", 0)
+    if max_bess_per_vessel and _bess_total:
+        import math as _m
+        min_vessels = _m.ceil(_bess_total / max_bess_per_vessel)
+        st.info(f"Insurer limit {max_bess_per_vessel} BESS per vessel → **at least {min_vessels} vessels** for "
+                f"{_bess_total} BESS units (e.g. " +
+                " + ".join(str(x) for x in [(_bess_total // min_vessels) + (1 if i < _bess_total % min_vessels else 0)
+                                            for i in range(min_vessels)]) + ").")
+    else:
+        min_vessels = 1
+
 with tab1:
     st.subheader("Equipment Mix & Quantities Configuration")
+    if bom_sync:
+        st.caption("🔗 Quantities and BESS capacity follow the BOM in the Project Brief tab.")
     st.info(f"All calculations tailored for active BESS deployment in **{destination_country}** (Display Currency: **{curr_code}**).")
     
     col1, col2 = st.columns(2)
     with col1:
-        bess_count = ui.number_input("BESS Containers (Units):", min_value=0, value=20, step=1)
-        mvs_count = ui.number_input("Medium Voltage Stations (MVS Units):", min_value=0, value=4, step=1)
-        transformer_count = ui.number_input("Transformers / Skids:", min_value=0, value=0, step=1)
+        bess_count = (st.number_input("BESS Containers (Units):", min_value=0, value=int(bom_totals.get("BESS", 0)), step=1, disabled=True,
+                                 key="bom_sync_bess_count_" + str(int(bom_totals.get("BESS", 0))))
+                 if bom_sync else ui.number_input("BESS Containers (Units):", min_value=0, value=20, step=1))
+        mvs_count = (st.number_input("Medium Voltage Stations (MVS Units):", min_value=0, value=int(bom_totals.get("MVS", 0)), step=1, disabled=True,
+                                 key="bom_sync_mvs_count_" + str(int(bom_totals.get("MVS", 0))))
+                 if bom_sync else ui.number_input("Medium Voltage Stations (MVS Units):", min_value=0, value=4, step=1))
+        transformer_count = (st.number_input("Transformers / Skids:", min_value=0, value=int(bom_totals.get("Transformer", 0)), step=1, disabled=True,
+                                 key="bom_sync_transformer_count_" + str(int(bom_totals.get("Transformer", 0))))
+                 if bom_sync else ui.number_input("Transformers / Skids:", min_value=0, value=0, step=1))
     with col2:
-        oog_count = ui.number_input("OOG / Special Containers:", min_value=0, value=0, step=1)
-        access_count = ui.number_input("Accessory Containers:", min_value=0, value=2, step=1)
-        solar_count = ui.number_input("Solar PV / Inverter Containers:", min_value=0, value=0, step=1)
+        oog_count = (st.number_input("OOG / Special Containers:", min_value=0, value=int(bom_totals.get("OOG", 0)), step=1, disabled=True,
+                                 key="bom_sync_oog_count_" + str(int(bom_totals.get("OOG", 0))))
+                 if bom_sync else ui.number_input("OOG / Special Containers:", min_value=0, value=0, step=1))
+        access_count = (st.number_input("Accessory Containers:", min_value=0, value=int(bom_totals.get("Accessory", 0)), step=1, disabled=True,
+                                 key="bom_sync_access_count_" + str(int(bom_totals.get("Accessory", 0))))
+                 if bom_sync else ui.number_input("Accessory Containers:", min_value=0, value=2, step=1))
+        solar_count = (st.number_input("Solar PV / Inverter Containers:", min_value=0, value=int(bom_totals.get("Solar", 0)), step=1, disabled=True,
+                                 key="bom_sync_solar_count_" + str(int(bom_totals.get("Solar", 0))))
+                 if bom_sync else ui.number_input("Solar PV / Inverter Containers:", min_value=0, value=0, step=1))
 
     st.markdown("---")
     st.markdown("#### Site Location & Project Details")
@@ -492,7 +657,12 @@ with tab1:
     st.markdown("#### Energy & Power Capacity")
     ec1, ec2, ec3 = st.columns(3)
     with ec1:
-        bess_capacity_mwh = ui.number_input("BESS Capacity per Container (MWh, DC nameplate):", min_value=0.5, value=4.0, step=0.5)
+        if bom_sync and bom_bess_mwh > 0:
+            bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh, DC nameplate):", min_value=0.5,
+                                                value=float(bom_bess_mwh), step=0.5, disabled=True,
+                                                key=f"bom_sync_mwh_{bom_bess_mwh}")
+        else:
+            bess_capacity_mwh = ui.number_input("BESS Capacity per Container (MWh, DC nameplate):", min_value=0.5, value=4.0, step=0.5)
     with ec2:
         project_mwac = ui.number_input("Project Power (MWac) — optional:", min_value=0.0, value=0.0, step=1.0,
                                        help="Inverter / PCS AC rating at the point of interconnection. Leave 0 to hide $/kW.")
@@ -657,6 +827,9 @@ with tab2:
     cc1, cc2 = st.columns(2)
     with cc1:
         insurance_pct = ui.number_input("Marine Insurance Rate (% of CIF):", min_value=0.0, value=0.15, step=0.05)
+        if insurance_by_client:
+            insurance_pct = 0.0
+            st.caption("Marine insurance is arranged by the client (Project Brief) — excluded from the costs.")
         customs_duty_pct = ui.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=(0.0 if is_israel else 2.7), step=0.1)
     with cc2:
         mvs_customs_duty_pct = ui.number_input("Customs Duty Rate (%) - MVS / Transformers:", min_value=0.0, value=0.0, step=0.1)
@@ -1593,6 +1766,7 @@ _project_file = {
     "shipments": _df_records(edited_shipments),
     "shipment_lines": _df_records(edited_lines),
     "regulatory_checklist": reg_status_now,
+    "bom": _df_records(bom_edit),
 }
 _slug = _re.sub(r"[^A-Za-z0-9]+", "_", project_name).strip("_") or "project"
 st.sidebar.download_button(
@@ -1618,6 +1792,9 @@ if _upload is not None:
                 st.session_state["msp_lines"] = _records_df(_data.get("shipment_lines", []))
                 for _k in ("msp_shipments_editor", "msp_lines_editor"):
                     st.session_state.pop(_k, None)
+            if _data.get("bom") is not None:
+                st.session_state["bom_df"] = _records_df(_data["bom"])
+                st.session_state.pop("bom_editor", None)
             if _data.get("regulatory_checklist"):
                 st.session_state["_reg_status"] = _data["regulatory_checklist"]
                 for _k in [k for k in st.session_state.keys() if str(k).startswith("reg_checklist_")]:
