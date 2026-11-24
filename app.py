@@ -108,7 +108,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # --- EUROPEAN VAT RATES DICTIONARY ---
 EUROPEAN_VAT_RATES = {
-    "Romania": 19.0,
+    "Romania": 21.0,   # 21% since 1 Aug 2025
     "Poland": 23.0,
     "Hungary": 27.0,
     "Bulgaria": 20.0,
@@ -122,10 +122,11 @@ EUROPEAN_VAT_RATES = {
     "Belgium": 21.0,
     "Austria": 20.0,
     "Czech Republic": 21.0,
-    "Slovakia": 20.0,
+    "Slovakia": 23.0,  # 23% since 1 Jan 2025
     "Croatia": 25.0,
     "Israel": 18.0
 }
+VAT_TABLE_VERIFIED = "November 2026"  # standard rates checked against published 2026 EU tables / Israel Tax Authority
 # Israeli sea ports (Mediterranean + Red Sea)
 ISRAEL_PORTS = [
     "Haifa Bay Port (SIPG), Israel",
@@ -600,24 +601,39 @@ with tab4:
     st.subheader("Regulation, Sustainability & Decommissioning")
     
     has_toxins_permit = True  # only relevant for Israel
+    toxins_missing_text = ""
     include_decom_israel = False
     if is_israel:
         st.markdown("#### 🇮🇱 Israel — Import & Transport Regulation")
 
         st.markdown("##### 1. Toxins Permit (Hebrew: היתר רעלים) — Israel Ministry of Environmental Protection")
-        has_toxins_permit = st.checkbox("Importer holds a valid Toxins Permit for lithium-ion BESS", value=False)
-        if not has_toxins_permit:
-            st.error(
-                "⚠️ **Toxins Permit required — action needed by the importer.**\n\n"
-                "* The Ministry of Environmental Protection now requires a Toxins Permit **from the importer** as well.\n"
-                "* **Without it, BESS units cannot be released from an external storage terminal** "
-                "(e.g. if the containers are moved from the port to a bonded/external yard).\n"
-                "* Israel Customs also requires a Toxins Permit from the importer — **not yet enforced, but enforcement may start at any time.**\n"
-                "* Apply well before the first vessel arrives; missing the permit can mean extra storage days and demurrage."
-            )
+        st.caption("Lithium-ion BESS are regulated under the Israeli Hazardous Substances Law. "
+                   "The Ministry now requires a Toxins Permit both from the **importer / consignee** and for the **project site**.")
+        tp1, tp2 = st.columns(2)
+        with tp1:
+            has_importer_permit = st.checkbox("Importer / consignee holds a valid Toxins Permit", value=False)
+        with tp2:
+            has_site_permit = st.checkbox("Project site holds a valid Toxins Permit", value=False)
+        has_toxins_permit = has_importer_permit and has_site_permit
+        missing = []
+        if not has_importer_permit:
+            missing.append(
+                "* **Importer / consignee permit missing** — BESS units **cannot be released from an external storage "
+                "terminal** (e.g. a bonded or off-port yard). Israel Customs also requires the importer's permit — "
+                "**not yet enforced, but enforcement may start at any time.**")
+        if not has_site_permit:
+            missing.append(
+                "* **Site permit missing** — the project site (developer / site operator) needs its own Toxins Permit "
+                "to receive and store the BESS on site. Coordinate with the developer / EPC before the first delivery.")
+        if missing:
+            st.error("⚠️ **Toxins Permit — action required before the BESS arrive.**\n\n" + "\n".join(missing) +
+                     "\n\n* Apply well before the first vessel arrives; a missing permit means extra storage days and demurrage.")
         else:
-            st.success("✅ Toxins Permit confirmed. Make sure it is valid for the whole delivery period and covers storage/handling of lithium-ion batteries.")
-        toxins_val = st.number_input(f"Toxins Permit — one-time cost (application, consultant, toxins officer) ({curr_code}):",
+            st.success("✅ Toxins Permits confirmed for importer and site. Make sure both are valid for the whole delivery "
+                       "period and cover lithium-ion batteries.")
+        toxins_missing_text = " and ".join(
+            ([] if has_importer_permit else ["importer / consignee"]) + ([] if has_site_permit else ["project site"]))
+        toxins_val = st.number_input(f"Toxins Permits — one-time cost, importer + site (application, consultant, toxins officer) ({curr_code}):",
                                      min_value=0.0, value=0.0, step=500.0)
 
         st.markdown("##### 2. Ministry of Transport — Oversize / Heavy Transport Permit per BESS Container (Hebrew: היתר הובלה)")
@@ -706,6 +722,8 @@ with tab4:
     with vc1:
         default_vat = EUROPEAN_VAT_RATES.get(destination_country, 19.0)
         applied_vat = st.number_input("Import VAT Rate (%):", min_value=0.0, value=default_vat, step=0.5)
+        st.caption(f"Default: standard VAT rate of {destination_country} ({default_vat:g}%), verified {VAT_TABLE_VERIFIED}. "
+                   "Confirm with your customs broker for the specific HS code.")
         vat_recovery_pct = st.number_input("VAT Recovery Rate (%):", min_value=0.0, value=100.0, step=5.0)
     with vc2:
         vat_paid_by_supplier = st.checkbox("Import VAT Paid Directly by Supplier", value=False)
@@ -843,8 +861,8 @@ with tab5:
         st.success(f"Lowest trucking cost: **{best['Israeli Port']}** — {best['Road Distance (km)']} km to site, "
                    f"total transit ≈ {best['Total Transit (Days)']} days.")
         if not has_toxins_permit:
-            st.warning("Reminder: without a Toxins Permit BESS cannot be released from an external storage terminal — "
-                       "keep this in mind when comparing ports with off-port storage yards.")
+            st.warning(f"Reminder: Toxins Permit missing for the {toxins_missing_text} — without the importer's permit BESS "
+                       "cannot be released from an external storage terminal; keep this in mind when comparing ports with off-port yards.")
     elif selected_country not in EUROPEAN_LOGISTICS_HUB:
         st.info(f"Route options for **{selected_country}** are not available yet. "
                 f"Currently covered: {', '.join(route_countries)}. "
@@ -882,7 +900,7 @@ with tab6:
     """)
     if is_israel:
         st.markdown("""
-    * **Israel — Toxins Permit:** required from the importer by the Ministry of Environmental Protection; needed to release BESS from external storage terminals.
+    * **Israel — Toxins Permits:** required by the Ministry of Environmental Protection from the importer / consignee and for the project site.
     * **Israel — MoT Transport Permits:** one oversize/heavy transport permit per BESS container for the port-to-site haul.
     """)
 
@@ -924,8 +942,9 @@ with tab7:
     )
 
     if is_israel and not has_toxins_permit:
-        st.error("⚠️ **Israel — Toxins Permit missing.** BESS units cannot be released from an external "
-                 "storage terminal without it, and Customs may start enforcing the requirement. See the Regulation tab.")
+        st.error(f"⚠️ **Israel — Toxins Permit missing for the {toxins_missing_text}.** Without the importer's permit BESS "
+                 "cannot be released from an external storage terminal; without the site permit they cannot be received "
+                 "and stored on site. See the Regulation tab.")
 
     if results["decom_epr_overlap_warning"]:
         st.warning("⚠️ **Notice:** Both EPR recycling fees and Decommissioning provisions are active. Ensure there is no double-counting of end-of-life recycling scope.")
@@ -1019,8 +1038,8 @@ with tab8:
     ]
     POD_OPTIONS = destination_ports + [p for p in ISRAEL_PORTS + all_european_ports if p not in destination_ports] + ["Other"]
     if is_israel and not has_toxins_permit:
-        st.error("⚠️ **Israel — Toxins Permit missing.** Without it, BESS cannot be released from an external "
-                 "storage terminal. Plan extra port storage days in the shipments below until the permit is in place.")
+        st.error(f"⚠️ **Israel — Toxins Permit missing for the {toxins_missing_text}.** Plan extra port storage days in "
+                 "the shipments below until both permits are in place.")
 
     if "msp_shipments" not in st.session_state or "Container Size" not in st.session_state.get("msp_lines", pd.DataFrame()).columns:
         st.session_state.msp_shipments = pd.DataFrame([
