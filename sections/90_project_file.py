@@ -44,6 +44,11 @@ def _apply_project_data(_data):
                                        "Paid", "Final", "Notes"])
         st.session_state["actuals_df"] = _a
         st.session_state.pop("actuals_editor", None)
+    if _data.get("suppliers") is not None:
+        _s = _records_df(_data["suppliers"], date_cols=("EXW Ready",))
+        if len(_s):
+            st.session_state["sup_df"] = _s
+            st.session_state.pop("sup_editor", None)
 
 
 st.sidebar.markdown("---")
@@ -67,4 +72,5 @@ _project_file = {
     "permit_requests": _df_records(req_edit),
     "budget_baseline": st.session_state.get("_budget_baseline"),
     "actuals": _df_records(act_edit),
+    "suppliers": _df_records(sup_edit),
 }

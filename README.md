@@ -22,3 +22,4 @@ Order matters: a section can use variables defined in earlier sections. Keep the
 ### Carbon footprint & dashboard
 - `carbon.py` — route-based transport emissions (GLEC Framework / ISO 14083, WTW): estimated sea distance via Suez or the Cape, road distance from the site GPS, editable factors.
 - `sections/89_dashboard.py` — Project Dashboard (first tab): KPIs, MWh by status, key dates, open alerts.
+- `supplier_compare.py` + `sections/35_supplier_comparison.py` — Supplier Comparison: delivered-to-site cost per kWh for competing BESS suppliers on the same project and route.

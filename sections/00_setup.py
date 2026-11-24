@@ -15,6 +15,8 @@ import rfq_export as _rfq_mod
 importlib.reload(_rfq_mod)
 import carbon as _carbon_mod
 importlib.reload(_carbon_mod)
+import supplier_compare as _sup_mod
+importlib.reload(_sup_mod)
 GOOD_FILL, BAD_FILL = _cmp_mod.GOOD, _cmp_mod.BAD
 from calc import get_live_exchange_rate, convert_currency, format_currency, calculate_project_costs
 from calc import calculate_shipment_plan, EQUIPMENT_TYPES, SERVICE_TYPES, CONTAINER_SIZES, teu_factor

@@ -76,12 +76,13 @@ with col_logo:
 
 st.markdown("---")
 
-tab_dash, tab0, tab_rfq, tab_sail, tab_quote, tab_permits, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab_cash, tab_budget, tab_scen = st.tabs([
+tab_dash, tab0, tab_rfq, tab_sail, tab_quote, tab_supp, tab_permits, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab_cash, tab_budget, tab_scen = st.tabs([
     "🏠 Dashboard",
     "📝 Project Brief & BOM",
     "📨 Request for Quote",
     "⛴️ Offers Received",
     "⚖️ Offer Comparison",
+    "🏭 Supplier Comparison",
     "🛂 Permits & Documents",
     "📋 Equipment Mix & Quantities",
     "🚢 Supply Chain & Incoterms",
