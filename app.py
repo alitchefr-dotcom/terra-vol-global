@@ -113,6 +113,32 @@ ui = _UI(st)
 ui_sidebar = _UI(st.sidebar)
 
 
+def _df_records(df):
+    out = []
+    for rec in df.to_dict(orient="records"):
+        clean = {}
+        for k, v in rec.items():
+            if hasattr(v, "isoformat"):
+                v = v.isoformat()[:10]
+            elif v is not None and not isinstance(v, (str, bool)) and pd.isna(v):
+                v = None
+            elif hasattr(v, "item"):
+                v = v.item()
+            clean[k] = v
+        out.append(clean)
+    return out
+
+
+def _records_df(records, date_cols=()):
+    df = pd.DataFrame(records)
+    for c in date_cols:
+        if c in df.columns:
+            df[c] = [date.fromisoformat(v) if isinstance(v, str) and v else None for v in df[c]]
+    return df
+
+
+
+
 # ---------------------------------------------------------------------------
 # GEO — port coordinates and site distance estimate
 # ---------------------------------------------------------------------------
@@ -771,6 +797,222 @@ with tab_sail:
                    "+ DG surcharge & DG yard (DG cargo) + heavy-lift (boxes above 30.48 t). On site ≈ ETA + 4 days.")
     else:
         st.info("Add sailing options to check them against the Project Brief.")
+
+
+    # =====================================================================
+    # PORT RULES & ALLOCATION PLAN (decision support — the carrier decides)
+    # =====================================================================
+    st.markdown("---")
+    st.markdown("#### Port Rules — Limits at the Port of Discharge")
+    st.caption("Limits set by ports / terminals for BESS (DG Class 9). Ports sharing a 'Limit Group' share one limit. "
+               "Leave empty when there is no known limit. Update when the port changes its rules.")
+    if "port_rules_df" not in st.session_state:
+        _rules = []
+        for p in destination_ports:
+            ashdod = is_israel and p.startswith("Ashdod Port")   # government Ashdod Port only (not Hadarom / TIL)
+            _rules.append({"Port": p, "Limit Group": p.split(",")[0],
+                           "Max BESS in Port at Once": 30 if ashdod else None,
+                           "Limit Type": "Temporary" if ashdod else "Firm",
+                           "Max DG Dwell (days)": None, "Direct Delivery Required": False,
+                           "Notes / Source": "New limit reported Nov 2026 — temporary note, confirm with the port before booking" if ashdod else "",
+                           "Last Updated": "2026-11" if ashdod else ""})
+        st.session_state.port_rules_df = pd.DataFrame(_rules)
+    port_rules_edit = st.data_editor(
+        st.session_state.port_rules_df, key="port_rules_editor", hide_index=True, use_container_width=True,
+        num_rows="dynamic",
+        column_config={
+            "Max BESS in Port at Once": st.column_config.NumberColumn(min_value=0, step=1),
+            "Limit Type": st.column_config.SelectboxColumn(options=["Firm", "Temporary"], required=True,
+                                                           help="Temporary limits give a warning; firm limits block the plan"),
+            "Max DG Dwell (days)": st.column_config.NumberColumn(min_value=0, step=1),
+            "Direct Delivery Required": st.column_config.CheckboxColumn(),
+        },
+    )
+    port_group_of, group_cap, port_dwell_cap, group_temp = {}, {}, {}, {}
+    for _, r in port_rules_edit.iterrows():
+        p = r.get("Port")
+        if not p or (not isinstance(p, str)):
+            continue
+        g = str(r.get("Limit Group") or p).strip() or p
+        port_group_of[p] = g
+        cap = _num(r.get("Max BESS in Port at Once"), default=0)
+        if cap > 0:
+            group_cap[g] = int(cap) if g not in group_cap else min(group_cap[g], int(cap))
+            group_temp[g] = (r.get("Limit Type") == "Temporary")
+        dw = _num(r.get("Max DG Dwell (days)"), default=0)
+        if dw > 0:
+            port_dwell_cap[p] = int(dw)
+
+    st.markdown("#### Allocation Plan — Requested vs. Confirmed by the Carrier")
+    st.caption("You decide the split and request it; the carrier confirms, reduces or rolls it. "
+               "Effective quantity = Confirmed for Confirmed / Reduced lines, Requested while pending, 0 if Rolled / Cancelled. "
+               "For MPP / charter vessels, 'Confirmed' means contracted.")
+    PLAN_STATUSES = ["Requested", "Confirmed", "Reduced", "Rolled", "Cancelled"]
+    _sail_by_opt = {r["Option"]: r for r in sail_results}
+    _bom_types = list(dict.fromkeys(b["Type"] for b in _bom_valid))
+
+    if "plan_df" not in st.session_state:
+        st.session_state.plan_df = pd.DataFrame(columns=["Option", "Equipment", "Requested", "Confirmed", "Status", "Port Days"])
+
+    if st.button("📝 Draft a starting plan (optional)",
+                 help="Fills the table with a first split on eligible sailings, cheapest first, within the insurer limit "
+                      "and the capacity offered. Edit it freely — it is only a starting point."):
+        _rows, _remaining = [], dict(bom_totals)
+        _elig = sorted([r for r in sail_results if r["eligible"]], key=lambda r: r["cost_usd"].get("BESS", 0))
+        for r in _elig:
+            room = r["Capacity"] or 0
+            for t in sorted(_remaining, key=lambda x: x != "BESS"):
+                if room <= 0 or _remaining[t] <= 0:
+                    continue
+                q = min(_remaining[t], room)
+                if t == "BESS" and max_bess_per_vessel:
+                    q = min(q, max_bess_per_vessel)
+                if q > 0:
+                    _rows.append({"Option": r["Option"], "Equipment": t, "Requested": int(q), "Confirmed": None,
+                                  "Status": "Requested", "Port Days": 3})
+                    _remaining[t] -= q
+                    room -= q
+        st.session_state.plan_df = pd.DataFrame(_rows, columns=["Option", "Equipment", "Requested", "Confirmed", "Status", "Port Days"])
+        st.session_state.pop("plan_editor", None)
+        st.rerun()
+
+    plan_edit = st.data_editor(
+        st.session_state.plan_df, key="plan_editor", hide_index=True, use_container_width=True, num_rows="dynamic",
+        column_config={
+            "Option": st.column_config.SelectboxColumn("Option", options=list(_sail_by_opt.keys()), required=True),
+            "Equipment": st.column_config.SelectboxColumn("Equipment", options=_bom_types or EQUIPMENT_TYPES, required=True),
+            "Requested": st.column_config.NumberColumn("Requested", min_value=0, step=1),
+            "Confirmed": st.column_config.NumberColumn("Confirmed", min_value=0, step=1,
+                                                       help="Quantity confirmed by the carrier (or contracted on MPP / charter)"),
+            "Status": st.column_config.SelectboxColumn("Status", options=PLAN_STATUSES, required=True),
+            "Port Days": st.column_config.NumberColumn("Port Days", min_value=0, step=1,
+                                                       help="Planned days in the port of discharge before pick-up"),
+        },
+    )
+
+    # ---- effective quantities
+    plan_lines = []
+    for _, r in plan_edit.iterrows():
+        opt = r.get("Option")
+        if opt not in _sail_by_opt:
+            continue
+        req = int(_num(r.get("Requested")))
+        conf_raw = pd.to_numeric(r.get("Confirmed"), errors="coerce")
+        status = r.get("Status") if r.get("Status") in PLAN_STATUSES else "Requested"
+        if status in ("Rolled", "Cancelled"):
+            eff = 0
+        elif status in ("Confirmed", "Reduced") and not pd.isna(conf_raw):
+            eff = int(conf_raw)
+        else:
+            eff = req
+        plan_lines.append({"Option": opt, "Equipment": r.get("Equipment"), "Requested": req,
+                           "Confirmed": None if pd.isna(conf_raw) else int(conf_raw), "Status": status,
+                           "Effective": eff, "Port Days": int(_num(r.get("Port Days"), default=3))})
+
+    if plan_lines:
+        st.markdown("#### Plan Check")
+        problems, warnings_, infos_ = [], [], []
+
+        # 1. coverage
+        eff_by_type = {}
+        for l in plan_lines:
+            eff_by_type[l["Equipment"]] = eff_by_type.get(l["Equipment"], 0) + l["Effective"]
+        cov_rows = []
+        for t in sorted(set(bom_totals) | set(eff_by_type)):
+            need, have = bom_totals.get(t, 0), eff_by_type.get(t, 0)
+            cov_rows.append({"Equipment": t, "In BOM": need, "On vessels (effective)": have,
+                             "Without a vessel": max(0, need - have), "Over-allocated": max(0, have - need)})
+            if have < need:
+                problems.append(f"{need - have} {t} unit(s) have no vessel yet")
+            elif have > need:
+                warnings_.append(f"{have - need} {t} unit(s) more than in the BOM")
+
+        # 2. per vessel: insurer limit, capacity, eligibility, carrier changes, arrival
+        by_opt = {}
+        for l in plan_lines:
+            by_opt.setdefault(l["Option"], []).append(l)
+        vessel_rows = []
+        for opt, ls in by_opt.items():
+            s_ = _sail_by_opt[opt]
+            bess = sum(l["Effective"] for l in ls if l["Equipment"] == "BESS")
+            tot = sum(l["Effective"] for l in ls)
+            req_tot = sum(l["Requested"] for l in ls)
+            pdays = max(l["Port Days"] for l in ls)
+            cost = sum(l["Effective"] * s_["cost_usd"].get(l["Equipment"], 0) for l in ls)
+            notes = []
+            if not s_["eligible"]:
+                problems.append(f"{opt}: sailing does not meet the Project Brief ({s_['Issues']})")
+                notes.append("❌ not eligible")
+            if max_bess_per_vessel and bess > max_bess_per_vessel:
+                problems.append(f"{opt}: {bess} BESS > insurer limit {max_bess_per_vessel}")
+                notes.append("❌ insurer limit")
+            if s_["Capacity"] and tot > s_["Capacity"]:
+                problems.append(f"{opt}: {tot} units > capacity offered {s_['Capacity']}")
+                notes.append("❌ capacity")
+            for l in ls:
+                if l["Status"] in ("Reduced", "Rolled", "Cancelled") and l["Requested"] > l["Effective"]:
+                    warnings_.append(f"{opt}: carrier {l['Status'].lower()} {l['Equipment']} by {l['Requested'] - l['Effective']} "
+                                     "— re-allocate to another eligible sailing")
+            if any(l["Status"] == "Requested" for l in ls):
+                infos_.append(f"{opt}: awaiting carrier confirmation")
+            pod = s_["POD"]
+            if pod in port_dwell_cap and pdays > port_dwell_cap[pod]:
+                problems.append(f"{opt}: {pdays} port days > max DG dwell {port_dwell_cap[pod]} at {pod.split(',')[0]}")
+            on_site = (s_["ETA"] + timedelta(days=pdays + 2)) if s_["ETA"] else None
+            if on_site and on_site > delivery_date:
+                warnings_.append(f"{opt}: on site ≈ {on_site.strftime('%d/%m/%Y')}, after the required date")
+            vessel_rows.append({"Option": opt, "Carrier": s_["Carrier"], "Vessel": s_["Vessel"], "Type": s_["Type"],
+                                "POD": pod.split(",")[0], "ETA": s_["ETA"].strftime("%d/%m/%Y") if s_["ETA"] else "",
+                                "BESS": bess, "All units": tot, "Requested": req_tot,
+                                "Est. ocean + local cost": f"{_sym} {cost * _mult:,.0f}",
+                                "Flags": " ".join(notes) or "✅"})
+
+        # 3. port limit over time (BESS present in each port group per day)
+        peak_rows = []
+        for g, cap in group_cap.items():
+            daily = {}
+            for opt, ls in by_opt.items():
+                s_ = _sail_by_opt[opt]
+                if not s_["ETA"] or port_group_of.get(s_["POD"]) != g:
+                    continue
+                bess = sum(l["Effective"] for l in ls if l["Equipment"] == "BESS")
+                pdays = max(1, max(l["Port Days"] for l in ls))
+                for k in range(pdays):
+                    d = s_["ETA"] + timedelta(days=k)
+                    daily[d] = daily.get(d, 0) + bess
+            if daily:
+                peak_day = max(daily, key=daily.get)
+                peak = daily[peak_day]
+                peak_rows.append({"Limit Group": g, "Limit": f"{cap}" + (" (temporary)" if group_temp.get(g) else ""),
+                                  "Peak BESS in port": peak, "Peak date": peak_day.strftime("%d/%m/%Y"),
+                                  "OK": "✅" if peak <= cap else ("⚠️" if group_temp.get(g) else "❌")})
+                if peak > cap:
+                    (warnings_ if group_temp.get(g) else problems).append(f"Port limit {g}: {peak} BESS in port on {peak_day.strftime('%d/%m/%Y')} > limit {cap} "
+                                    "— spread the arrivals, shorten port days or use another port")
+
+        st.dataframe(pd.DataFrame(vessel_rows), use_container_width=True, hide_index=True)
+        cc1, cc2 = st.columns([3, 2])
+        with cc1:
+            st.dataframe(pd.DataFrame(cov_rows), use_container_width=True, hide_index=True)
+        with cc2:
+            if peak_rows:
+                st.dataframe(pd.DataFrame(peak_rows), use_container_width=True, hide_index=True)
+            else:
+                st.caption("No port limits set for the ports in this plan.")
+
+        if problems:
+            st.error("**Plan not feasible yet:**\n\n" + "\n".join(f"* {p}" for p in problems))
+        if warnings_:
+            st.warning("\n".join(f"* {w}" for w in warnings_))
+        if infos_:
+            st.info("\n".join(f"* {i}" for i in infos_))
+        if not problems and not warnings_:
+            st.success("✅ Plan meets the Project Brief, the insurer limit, capacity and port limits.")
+
+        if st.button("➡️ Send this plan to the Multi-Shipment Planner",
+                     help="Creates one shipment per vessel with the effective quantities and the sailing's rates."):
+            st.session_state["_plan_to_msp"] = {"lines": plan_lines, "sailings": _df_records(sail_edit)}
+            st.success("Plan sent — open the Multi-Shipment Planner tab to see the full landed cost.")
 
 with tab1:
     st.subheader("Equipment Mix & Quantities Configuration")
@@ -1648,6 +1890,60 @@ with tab8:
              "Dest. THC / Unit": 400.0, "Trucking / Unit": 3000.0},
         ])
 
+    _sent = st.session_state.pop("_plan_to_msp", None)
+    if _sent:
+        _sails = {str(r.get("Option")): r for r in _sent["sailings"]}
+        _bom_size = {b["Type"]: b["Container"] for b in bom_rows}
+        _bom_soc = {}
+        for _, _b in bom_edit.iterrows():
+            _bom_soc[_b.get("Equipment Type")] = bool(_b.get("SOC"))
+        _dray = {"BESS": dray_bess, "OOG": dray_oog, "MVS": dray_mvs, "Transformer": dray_trans,
+                 "Accessory": dray_access, "Solar": dray_solar}
+        _dray_usd = {k: (v / usd_to_eur if is_eur_display else v) for k, v in _dray.items()}
+        _sh_rows, _ln_rows, _seen = [], [], set()
+        for l in _sent["lines"]:
+            if l["Effective"] <= 0:
+                continue
+            sr = _sails.get(l["Option"], {})
+            name = f"{l['Option']} - {sr.get('Vessel') or ''}".strip(" -")
+            vtype = sr.get("Vessel Type") or "Container vessel"
+            soc = _bom_soc.get(l["Equipment"], True)
+            service = "MPP Vessel" if vtype != "Container vessel" else ("Container Line - SOC" if soc else "Container Line - COC")
+            cur = sr.get("Currency") or "USD"
+            if name not in _seen:
+                _seen.add(name)
+                _sh_rows.append({"Shipment": name, "Carrier": sr.get("Carrier") or "Other", "Service": service,
+                                 "Origin Port": sr.get("POL") if sr.get("POL") in ["Shanghai", "Ningbo-Zhoushan", "Qingdao",
+                                     "Shenzhen - Yantian", "Shenzhen - Shekou", "Guangzhou - Nansha", "Xingang / Tianjin"] else "Other",
+                                 "POD": sr.get("POD"),
+                                 "ETD": date.fromisoformat(sr["ETD"]) if sr.get("ETD") else None,
+                                 "ETA": date.fromisoformat(sr["ETA"]) if sr.get("ETA") else None,
+                                 "Currency": cur, "Origin Charges / Unit": float(sr.get("Origin Local / Unit") or 0),
+                                 "Port Days": int(l["Port Days"]), "Free Days": int(sr.get("Free Days") or 0),
+                                 "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 0.0})
+            size = _bom_size.get(l["Equipment"], "20ft")
+            heavy = any(b["Type"] == l["Equipment"] and "Heavy box" in b["Checks"] for b in bom_rows)
+            dg = any(b["Type"] == l["Equipment"] and "Dangerous goods" in b["Checks"] for b in bom_rows)
+            freight = float(sr.get("Freight / 40ft") or 0) if size in ("40ft", "40ft HC") else float(sr.get("Freight / 20ft") or 0)
+            freight += float(sr.get("Lashing / Unit") or 0)
+            if dg:
+                freight += float(sr.get("DG Surcharge / Unit") or 0) + float(sr.get("DG Yard Origin / Unit") or 0)
+            if heavy:
+                freight += float(sr.get("Heavy-Lift / Unit") or 0)
+            _fx = usd_to_eur if str(cur).upper().startswith("EUR") else 1.0
+            _ln_rows.append({"Shipment": name, "Equipment": l["Equipment"], "Qty": int(l["Effective"]),
+                             "Container Size": "MPP / Breakbulk" if service == "MPP Vessel" else size, "Currency": cur,
+                             "Freight / Unit": freight, "BAF / TEU": float(sr.get("BAF / TEU (if not incl.)") or 0),
+                             "Apply EFS": False, "EFS / TEU": 0.0,
+                             "Dest. THC / Unit": float(sr.get("Dest. Local / Unit") or 0),
+                             "Trucking / Unit": round(_dray_usd.get(l["Equipment"], 0.0) * _fx, 2)})
+        if _sh_rows:
+            st.session_state.msp_shipments = pd.DataFrame(_sh_rows)
+            st.session_state.msp_lines = pd.DataFrame(_ln_rows)
+            st.session_state.pop("msp_shipments_editor", None)
+            st.session_state.pop("msp_lines_editor", None)
+            st.success(f"Loaded the allocation plan: {len(_sh_rows)} shipment(s) from the Sailing Options tab.")
+
     st.markdown("#### 1. Shipments")
     st.caption(
         "Daily Rate after Free Days = carrier **demurrage** for COC containers, or terminal **port storage** "
@@ -1922,30 +2218,6 @@ with tab8:
 # ---------------------------------------------------------------------------
 # PROJECT FILE — save / load (sidebar)
 # ---------------------------------------------------------------------------
-def _df_records(df):
-    out = []
-    for rec in df.to_dict(orient="records"):
-        clean = {}
-        for k, v in rec.items():
-            if hasattr(v, "isoformat"):
-                v = v.isoformat()[:10]
-            elif v is not None and not isinstance(v, (str, bool)) and pd.isna(v):
-                v = None
-            elif hasattr(v, "item"):
-                v = v.item()
-            clean[k] = v
-        out.append(clean)
-    return out
-
-
-def _records_df(records, date_cols=()):
-    df = pd.DataFrame(records)
-    for c in date_cols:
-        if c in df.columns:
-            df[c] = [date.fromisoformat(v) if isinstance(v, str) and v else None for v in df[c]]
-    return df
-
-
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 💾 Save / Load Project")
 _project_file = {
@@ -1960,6 +2232,8 @@ _project_file = {
     "regulatory_checklist": reg_status_now,
     "bom": _df_records(bom_edit),
     "sailings": _df_records(sail_edit),
+    "port_rules": _df_records(port_rules_edit),
+    "allocation_plan": _df_records(plan_edit),
 }
 _slug = _re.sub(r"[^A-Za-z0-9]+", "_", project_name).strip("_") or "project"
 st.sidebar.download_button(
@@ -1985,6 +2259,12 @@ if _upload is not None:
                 st.session_state["msp_lines"] = _records_df(_data.get("shipment_lines", []))
                 for _k in ("msp_shipments_editor", "msp_lines_editor"):
                     st.session_state.pop(_k, None)
+            if _data.get("port_rules") is not None:
+                st.session_state["port_rules_df"] = _records_df(_data["port_rules"])
+                st.session_state.pop("port_rules_editor", None)
+            if _data.get("allocation_plan") is not None:
+                st.session_state["plan_df"] = _records_df(_data["allocation_plan"])
+                st.session_state.pop("plan_editor", None)
             if _data.get("sailings") is not None:
                 st.session_state["sail_df"] = _records_df(_data["sailings"], date_cols=("ETD", "ETA", "Valid Until"))
                 st.session_state.pop("sail_editor", None)
