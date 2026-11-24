@@ -56,6 +56,57 @@ def lookup_surcharge(rates, carrier, port):
 
 BAF_RATES = load_baf_rates()
 
+
+# ---------------------------------------------------------------------------
+# PROJECT SAVE / LOAD — every input goes through `ui` so its value can be saved
+# to a project file and restored later.
+# ---------------------------------------------------------------------------
+import re as _re
+
+_LOADED = st.session_state.get("_loaded_project_values", {})
+_SAVED = {}
+
+
+def _pid(kind, label):
+    """Stable field id: widget type + label without parentheses (currency etc.)."""
+    return kind + ":" + _re.sub(r"\s*\([^)]*\)", "", str(label)).strip()
+
+
+class _UI:
+    def __init__(self, container):
+        self.c = container
+
+    def _call(self, kind, label, args, kw):
+        pid = _pid(kind, label)
+        if pid in _LOADED and "key" not in kw:
+            v = _LOADED[pid]
+            if kind in ("selectbox", "radio"):
+                opts = list(args[0]) if args else list(kw.get("options", []))
+                if v in opts:
+                    kw["index"] = opts.index(v)
+            elif kind == "date_input":
+                try:
+                    kw["value"] = date.fromisoformat(v)
+                except (TypeError, ValueError):
+                    pass
+            else:
+                kw["value"] = v
+        res = getattr(self.c, kind)(label, *args, **kw)
+        _SAVED[pid] = res.isoformat() if isinstance(res, date) else res
+        return res
+
+    def number_input(self, label, *a, **k): return self._call("number_input", label, a, k)
+    def selectbox(self, label, *a, **k): return self._call("selectbox", label, a, k)
+    def checkbox(self, label, *a, **k): return self._call("checkbox", label, a, k)
+    def text_input(self, label, *a, **k): return self._call("text_input", label, a, k)
+    def date_input(self, label, *a, **k): return self._call("date_input", label, a, k)
+    def slider(self, label, *a, **k): return self._call("slider", label, a, k)
+    def radio(self, label, *a, **k): return self._call("radio", label, a, k)
+
+
+ui = _UI(st)
+ui_sidebar = _UI(st.sidebar)
+
 st.set_page_config(
     page_title="Terra Vol | Global BESS Project Calculator",
     page_icon="⚡",
@@ -246,7 +297,10 @@ if os.path.exists(logo_path):
 st.sidebar.markdown("### Terra Vol Global")
 st.sidebar.markdown("---")
 
-display_currency = st.sidebar.selectbox(
+st.sidebar.markdown("### 📁 Project")
+project_name = ui_sidebar.text_input("Project Name:", value="New BESS Project")
+st.sidebar.markdown("---")
+display_currency = ui_sidebar.selectbox(
     "Main Display Currency:",
     options=["EUR (€)", "USD ($)"],
     index=0
@@ -254,9 +308,9 @@ display_currency = st.sidebar.selectbox(
 curr_code = "EUR" if "EUR" in display_currency else "USD"
 is_eur_display = ("EUR" in display_currency)
 
-delivery_date = st.sidebar.date_input("Delivery Target Date:", value=date(2027, 6, 30))
+delivery_date = ui_sidebar.date_input("Delivery Target Date:", value=date(2027, 6, 30))
 
-trend_multiplier = st.sidebar.slider(
+trend_multiplier = ui_sidebar.slider(
     "Equipment Cost Trend Multiplier:",
     min_value=0.8,
     max_value=1.3,
@@ -277,7 +331,7 @@ st.sidebar.number_input(
 usd_to_eur = st.session_state.usd_eur
 st.sidebar.button("Refresh Live Rates", on_click=refresh_rate)
 
-destination_country = st.sidebar.selectbox(
+destination_country = ui_sidebar.selectbox(
     "Project Destination Country:",
     options=list(EUROPEAN_VAT_RATES.keys()),
     index=0
@@ -326,23 +380,23 @@ with tab1:
     
     col1, col2 = st.columns(2)
     with col1:
-        bess_count = st.number_input("BESS Containers (Units):", min_value=0, value=20, step=1)
-        mvs_count = st.number_input("Medium Voltage Stations (MVS Units):", min_value=0, value=4, step=1)
-        transformer_count = st.number_input("Transformers / Skids:", min_value=0, value=0, step=1)
+        bess_count = ui.number_input("BESS Containers (Units):", min_value=0, value=20, step=1)
+        mvs_count = ui.number_input("Medium Voltage Stations (MVS Units):", min_value=0, value=4, step=1)
+        transformer_count = ui.number_input("Transformers / Skids:", min_value=0, value=0, step=1)
     with col2:
-        oog_count = st.number_input("OOG / Special Containers:", min_value=0, value=0, step=1)
-        access_count = st.number_input("Accessory Containers:", min_value=0, value=2, step=1)
-        solar_count = st.number_input("Solar PV / Inverter Containers:", min_value=0, value=0, step=1)
+        oog_count = ui.number_input("OOG / Special Containers:", min_value=0, value=0, step=1)
+        access_count = ui.number_input("Accessory Containers:", min_value=0, value=2, step=1)
+        solar_count = ui.number_input("Solar PV / Inverter Containers:", min_value=0, value=0, step=1)
 
     st.markdown("---")
     st.markdown("#### Site Location & Project Details")
     loc_col1, loc_col2, loc_col3 = st.columns(3)
     with loc_col1:
-        site_address = st.text_input("Site Address / Location:", value=f"Industrial Zone, {destination_country}")
+        site_address = ui.text_input("Site Address / Location:", value=f"Industrial Zone, {destination_country}")
     with loc_col2:
-        site_postal = st.text_input("Postal Code / Region:", value="10000")
+        site_postal = ui.text_input("Postal Code / Region:", value="10000")
     with loc_col3:
-        site_coords = st.text_input("GPS Coordinates:", value="44.4268° N, 26.1025° E")
+        site_coords = ui.text_input("GPS Coordinates:", value="44.4268° N, 26.1025° E")
 
     st.markdown("---")
     st.markdown(f"#### Equipment EXW Cost ({curr_code})")
@@ -352,13 +406,13 @@ with tab1:
       # Currency conversion factor for default values display
         disp_mult = usd_to_eur if (not is_eur_display and usd_to_eur > 0) else 1.0
 
-        bess_exw_input = st.number_input(f"EXW Cost per BESS Container ({curr_code}):", min_value=0, value=int(400000 * disp_mult), step=5000) if bess_count > 0 else 0
-        mvs_exw_input = st.number_input(f"EXW Cost per MVS Unit ({curr_code}):", min_value=0, value=int(250000 * disp_mult), step=5000) if mvs_count > 0 else 0
-        transformer_exw_input = st.number_input(f"EXW Cost per Transformer ({curr_code}):", min_value=0, value=int(120000 * disp_mult), step=5000) if transformer_count > 0 else 0
+        bess_exw_input = ui.number_input(f"EXW Cost per BESS Container ({curr_code}):", min_value=0, value=int(400000 * disp_mult), step=5000) if bess_count > 0 else 0
+        mvs_exw_input = ui.number_input(f"EXW Cost per MVS Unit ({curr_code}):", min_value=0, value=int(250000 * disp_mult), step=5000) if mvs_count > 0 else 0
+        transformer_exw_input = ui.number_input(f"EXW Cost per Transformer ({curr_code}):", min_value=0, value=int(120000 * disp_mult), step=5000) if transformer_count > 0 else 0
 with col_exw2:
-        oog_exw_input = st.number_input(f"EXW Cost per OOG Unit ({curr_code}):", min_value=0, value=int(300000 * disp_mult), step=5000) if oog_count > 0 else 0
-        access_exw_input = st.number_input(f"EXW Cost per Accessory Unit ({curr_code}):", min_value=0, value=int(30000 * disp_mult), step=1000) if access_count > 0 else 0
-        solar_exw_input = st.number_input(f"EXW Cost per Solar Unit ({curr_code}):", min_value=0, value=int(50000 * disp_mult), step=1000) if solar_count > 0 else 0
+        oog_exw_input = ui.number_input(f"EXW Cost per OOG Unit ({curr_code}):", min_value=0, value=int(300000 * disp_mult), step=5000) if oog_count > 0 else 0
+        access_exw_input = ui.number_input(f"EXW Cost per Accessory Unit ({curr_code}):", min_value=0, value=int(30000 * disp_mult), step=1000) if access_count > 0 else 0
+        solar_exw_input = ui.number_input(f"EXW Cost per Solar Unit ({curr_code}):", min_value=0, value=int(50000 * disp_mult), step=1000) if solar_count > 0 else 0
 
 to_usd_factor = (1.0 / usd_to_eur) if is_eur_display and usd_to_eur > 0 else 1.0
 bess_exw = bess_exw_input * to_usd_factor
@@ -373,12 +427,12 @@ with tab1:
     st.markdown("#### Energy & Power Capacity")
     ec1, ec2, ec3 = st.columns(3)
     with ec1:
-        bess_capacity_mwh = st.number_input("BESS Capacity per Container (MWh, DC nameplate):", min_value=0.5, value=4.0, step=0.5)
+        bess_capacity_mwh = ui.number_input("BESS Capacity per Container (MWh, DC nameplate):", min_value=0.5, value=4.0, step=0.5)
     with ec2:
-        project_mwac = st.number_input("Project Power (MWac) — optional:", min_value=0.0, value=0.0, step=1.0,
+        project_mwac = ui.number_input("Project Power (MWac) — optional:", min_value=0.0, value=0.0, step=1.0,
                                        help="Inverter / PCS AC rating at the point of interconnection. Leave 0 to hide $/kW.")
     with ec3:
-        project_mwh_ac = st.number_input("Usable Energy at POI (MWh AC) — optional:", min_value=0.0, value=0.0, step=1.0,
+        project_mwh_ac = ui.number_input("Usable Energy at POI (MWh AC) — optional:", min_value=0.0, value=0.0, step=1.0,
                                          help="Contracted usable AC energy at the point of interconnection. Leave 0 to hide $/kWh AC.")
     project_kwh_dc = bess_count * bess_capacity_mwh * 1000.0
     st.caption(f"Project DC nameplate energy: **{project_kwh_dc / 1000.0:,.1f} MWh** "
@@ -415,8 +469,8 @@ with tab2:
     
     col_sc1, col_sc2 = st.columns(2)
     with col_sc1:
-        shipping_line = st.selectbox("Shipping Line / Carrier:", CARRIERS)
-        origin_port = st.selectbox("Origin Port (China):", [
+        shipping_line = ui.selectbox("Shipping Line / Carrier:", CARRIERS)
+        origin_port = ui.selectbox("Origin Port (China):", [
             "Shanghai, China - SIPG (Waigaoqiao / Yangshan)",
             "Ningbo-Zhoushan, China - Beilun Terminal",
             "Qingdao, China - Qianwan Terminal",
@@ -425,22 +479,22 @@ with tab2:
             "Guangzhou, China - Nansha Port"
         ])
     with col_sc2:
-        dest_port = st.selectbox(f"Selected Port of Destination (POD) for {destination_country}:", options=destination_ports, index=0)
-        incoterm_code = st.selectbox("Incoterm:", options=["EXW", "FOB", "CFR", "CIF", "DAP", "DDP"], index=3)
+        dest_port = ui.selectbox(f"Selected Port of Destination (POD) for {destination_country}:", options=destination_ports, index=0)
+        incoterm_code = ui.selectbox("Incoterm:", options=["EXW", "FOB", "CFR", "CIF", "DAP", "DDP"], index=3)
 
     st.markdown("---")
     st.markdown(f"#### 1. Ocean Freight per Unit ({curr_code})")
     f_mult = usd_to_eur if is_eur_display else 1.0
     cf1, cf2, cf3 = st.columns(3)
     with cf1:
-        f_bess = st.number_input(f"BESS Freight ({curr_code}):", min_value=0, value=int(18000 * f_mult), step=500)
-        f_oog = st.number_input(f"OOG Freight ({curr_code}):", min_value=0, value=int(18000 * f_mult), step=500)
+        f_bess = ui.number_input(f"BESS Freight ({curr_code}):", min_value=0, value=int(18000 * f_mult), step=500)
+        f_oog = ui.number_input(f"OOG Freight ({curr_code}):", min_value=0, value=int(18000 * f_mult), step=500)
     with cf2:
-        f_mvs = st.number_input(f"MVS Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
-        f_trans = st.number_input(f"Transformer Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
+        f_mvs = ui.number_input(f"MVS Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
+        f_trans = ui.number_input(f"Transformer Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
     with cf3:
-        f_access = st.number_input(f"Accessory Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
-        f_solar = st.number_input(f"Solar PV Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
+        f_access = ui.number_input(f"Accessory Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
+        f_solar = ui.number_input(f"Solar PV Freight ({curr_code}):", min_value=0, value=int(4000 * f_mult), step=500)
 
     unit_freight_bess = f_bess / usd_to_eur if is_eur_display else f_bess
     unit_freight_oog = f_oog / usd_to_eur if is_eur_display else f_oog
@@ -454,17 +508,16 @@ with tab2:
                "A 10ft SOC normally takes a 20ft slot and is billed as 1 TEU (adjustable below).")
     cs1, cs2, cs3, cs4 = st.columns(4)
     with cs1:
-        size_bess = st.selectbox("BESS container size:", CONTAINER_SIZES[:4], index=1, key="size_bess")
-        size_oog = st.selectbox("OOG unit size:", CONTAINER_SIZES[:4], index=2, key="size_oog")
+        size_bess = ui.selectbox("BESS container size:", CONTAINER_SIZES[:4], index=1)
+        size_oog = ui.selectbox("OOG unit size:", CONTAINER_SIZES[:4], index=2)
     with cs2:
-        size_mvs = st.selectbox("MVS container size:", CONTAINER_SIZES[:4], index=1, key="size_mvs")
-        size_trans = st.selectbox("Transformer size:", CONTAINER_SIZES[:4], index=1, key="size_trans")
+        size_mvs = ui.selectbox("MVS container size:", CONTAINER_SIZES[:4], index=1)
+        size_trans = ui.selectbox("Transformer size:", CONTAINER_SIZES[:4], index=1)
     with cs3:
-        size_access = st.selectbox("Accessory container size:", CONTAINER_SIZES[:4], index=3, key="size_access")
-        size_solar = st.selectbox("Solar PV container size:", CONTAINER_SIZES[:4], index=3, key="size_solar")
+        size_access = ui.selectbox("Accessory container size:", CONTAINER_SIZES[:4], index=3)
+        size_solar = ui.selectbox("Solar PV container size:", CONTAINER_SIZES[:4], index=3)
     with cs4:
-        ten_ft_teu = st.number_input("10ft container billed as (TEU):", min_value=0.5, max_value=1.0, value=1.0, step=0.5,
-                                     key="ten_ft_teu")
+        ten_ft_teu = ui.number_input("10ft container billed as (TEU):", min_value=0.5, max_value=1.0, value=1.0, step=0.5)
 
     st.markdown(f"#### 3. Fuel Surcharges per TEU — BAF & EFS ({curr_code})")
     auto_baf = lookup_surcharge(BAF_RATES, shipping_line, dest_port)
@@ -475,19 +528,19 @@ with tab2:
                    + (f" · [source]({auto_baf['source_url']})" if auto_baf.get('source_url') else ""))
     else:
         st.caption(f"No published surcharge on file for **{shipping_line}** to this port yet — enter the BAF from your quote.")
-    include_baf_in_freight = st.checkbox("Ocean Freight already includes BAF", value=False)
+    include_baf_in_freight = ui.checkbox("Ocean Freight already includes BAF", value=False)
     auto_baf_usd = float(auto_baf["baf_usd_per_teu"]) if auto_baf else 600.0
     auto_efs_usd = float(auto_baf["efs_usd_per_teu"]) if (auto_baf and auto_baf.get("efs_usd_per_teu") is not None) else 0.0
 
     bf1, bf2, bf3 = st.columns(3)
     with bf1:
-        baf_per_teu_in = st.number_input(f"BAF per TEU ({curr_code}):", min_value=-2000.0,
+        baf_per_teu_in = ui.number_input(f"BAF per TEU ({curr_code}):", min_value=-2000.0,
                                          value=0.0 if include_baf_in_freight else round(auto_baf_usd * f_mult, 2),
                                          step=10.0, disabled=include_baf_in_freight)
     with bf2:
-        apply_efs = st.checkbox("Apply Emergency Fuel Surcharge (EFS)", value=bool(auto_efs_usd))
+        apply_efs = ui.checkbox("Apply Emergency Fuel Surcharge (EFS)", value=bool(auto_efs_usd))
     with bf3:
-        efs_per_teu_in = st.number_input(f"EFS per TEU ({curr_code}):", min_value=0.0,
+        efs_per_teu_in = ui.number_input(f"EFS per TEU ({curr_code}):", min_value=0.0,
                                          value=round(auto_efs_usd * f_mult, 2), step=10.0, disabled=not apply_efs)
 
     baf_per_teu_usd = 0.0 if include_baf_in_freight else (baf_per_teu_in / usd_to_eur if is_eur_display else baf_per_teu_in)
@@ -511,14 +564,14 @@ with tab2:
     thc_mult = f_mult
     ct1, ct2, ct3 = st.columns(3)
     with ct1:
-        dthc_bess = st.number_input(f"BESS Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
-        dthc_oog = st.number_input(f"OOG Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_bess = ui.number_input(f"BESS Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_oog = ui.number_input(f"OOG Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
     with ct2:
-        dthc_mvs = st.number_input(f"MVS Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
-        dthc_trans = st.number_input(f"Transformer THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_mvs = ui.number_input(f"MVS Destination THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_trans = ui.number_input(f"Transformer THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
     with ct3:
-        dthc_access = st.number_input(f"Accessory THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
-        dthc_solar = st.number_input(f"Solar PV THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_access = ui.number_input(f"Accessory THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
+        dthc_solar = ui.number_input(f"Solar PV THC ({curr_code}):", min_value=0.0, value=400.0 * thc_mult, step=50.0)
 
     if is_eur_display:
         dthc_bess /= usd_to_eur; dthc_oog /= usd_to_eur; dthc_mvs /= usd_to_eur
@@ -527,10 +580,10 @@ with tab2:
     st.markdown(f"#### 5. Origin Charges in China per Container ({curr_code})")
     oc1, oc2 = st.columns(2)
     with oc1:
-        origin_truck_in = st.number_input(f"Factory-to-port trucking per container ({curr_code}):", min_value=0.0,
+        origin_truck_in = ui.number_input(f"Factory-to-port trucking per container ({curr_code}):", min_value=0.0,
                                           value=round(220.0 * f_mult, 2), step=10.0)
     with oc2:
-        origin_thc_in = st.number_input(f"Origin THC & export handling per container ({curr_code}):", min_value=0.0,
+        origin_thc_in = ui.number_input(f"Origin THC & export handling per container ({curr_code}):", min_value=0.0,
                                         value=round(130.0 * f_mult, 2), step=10.0)
     origin_truck_usd = origin_truck_in / usd_to_eur if is_eur_display else origin_truck_in
     origin_thc_usd = origin_thc_in / usd_to_eur if is_eur_display else origin_thc_in
@@ -538,10 +591,10 @@ with tab2:
     st.markdown("---")
     cc1, cc2 = st.columns(2)
     with cc1:
-        insurance_pct = st.number_input("Marine Insurance Rate (% of CIF):", min_value=0.0, value=0.15, step=0.05)
-        customs_duty_pct = st.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=(0.0 if is_israel else 2.7), step=0.1)
+        insurance_pct = ui.number_input("Marine Insurance Rate (% of CIF):", min_value=0.0, value=0.15, step=0.05)
+        customs_duty_pct = ui.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=(0.0 if is_israel else 2.7), step=0.1)
     with cc2:
-        mvs_customs_duty_pct = st.number_input("Customs Duty Rate (%) - MVS / Transformers:", min_value=0.0, value=0.0, step=0.1)
+        mvs_customs_duty_pct = ui.number_input("Customs Duty Rate (%) - MVS / Transformers:", min_value=0.0, value=0.0, step=0.1)
         if is_israel:
             st.info("🇮🇱 Israel: no customs duty on BESS, MVS or transformers (default 0%). "
                     "Solar PV / Inverters are calculated at 0%. Verify the HS classification with your customs broker.")
@@ -556,14 +609,14 @@ with tab3:
     dr_mult = f_mult
     cd1, cd2, cd3 = st.columns(3)
     with cd1:
-        dray_bess = st.number_input(f"BESS Trucking per unit (Heavy/Hazmat) ({curr_code}):", min_value=0.0, value=5500.0 * dr_mult, step=500.0)
-        dray_oog = st.number_input(f"OOG Trucking per unit ({curr_code}):", min_value=0.0, value=6500.0 * dr_mult, step=500.0)
+        dray_bess = ui.number_input(f"BESS Trucking per unit (Heavy/Hazmat) ({curr_code}):", min_value=0.0, value=5500.0 * dr_mult, step=500.0)
+        dray_oog = ui.number_input(f"OOG Trucking per unit ({curr_code}):", min_value=0.0, value=6500.0 * dr_mult, step=500.0)
     with cd2:
-        dray_mvs = st.number_input(f"MVS Trucking per unit ({curr_code}):", min_value=0.0, value=4500.0 * dr_mult, step=500.0)
-        dray_trans = st.number_input(f"Transformer Trucking per unit ({curr_code}):", min_value=0.0, value=4800.0 * dr_mult, step=500.0)
+        dray_mvs = ui.number_input(f"MVS Trucking per unit ({curr_code}):", min_value=0.0, value=4500.0 * dr_mult, step=500.0)
+        dray_trans = ui.number_input(f"Transformer Trucking per unit ({curr_code}):", min_value=0.0, value=4800.0 * dr_mult, step=500.0)
     with cd3:
-        dray_access = st.number_input(f"Accessory Trucking per unit ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=200.0)
-        dray_solar = st.number_input(f"Solar PV Trucking per unit ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=200.0)
+        dray_access = ui.number_input(f"Accessory Trucking per unit ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=200.0)
+        dray_solar = ui.number_input(f"Solar PV Trucking per unit ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=200.0)
 
     if is_eur_display:
         dray_bess /= usd_to_eur; dray_oog /= usd_to_eur; dray_mvs /= usd_to_eur
@@ -573,28 +626,28 @@ with tab3:
     st.markdown("#### 2. Port Demurrage (Shipping Line) & Port Storage (Terminal)")
     col_st1, col_st2 = st.columns(2)
     with col_st1:
-        free_days = st.number_input("Port Free Days (Demurrage):", min_value=0, value=3, step=1)
-        actual_port_days = st.number_input("Actual Port Days before clearance:", min_value=1, value=6, step=1)
-        demurrage_daily_rate = st.number_input(f"Shipping Line Demurrage Daily Rate per unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
+        free_days = ui.number_input("Port Free Days (Demurrage):", min_value=0, value=3, step=1)
+        actual_port_days = ui.number_input("Actual Port Days before clearance:", min_value=1, value=6, step=1)
+        demurrage_daily_rate = ui.number_input(f"Shipping Line Demurrage Daily Rate per unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
     with col_st2:
-        use_external_storage = st.checkbox("Use External Storage Yard / Buffer", value=False)
-        ext_storage_days = st.number_input("External Storage Days:", min_value=0, value=10, step=1) if use_external_storage else 0
+        use_external_storage = ui.checkbox("Use External Storage Yard / Buffer", value=False)
+        ext_storage_days = ui.number_input("External Storage Days:", min_value=0, value=10, step=1) if use_external_storage else 0
         ext_storage_daily_rate = 250.0
 
     if is_eur_display:
         demurrage_daily_rate /= usd_to_eur
 
-    include_delay_scenario = st.checkbox("Include Customs Delay Contingency Scenario (+7 Days)", value=True)
+    include_delay_scenario = ui.checkbox("Include Customs Delay Contingency Scenario (+7 Days)", value=True)
 
     st.markdown("---")
     st.markdown(f"#### 3. Site Crane & Heavy Unloading ({curr_code})")
-    include_site_crane = st.checkbox("Include Site Crane & Unloading", value=True)
-    site_crane_val = st.number_input(f"Total Crane & Unloading Cost ({curr_code}):", min_value=0.0, value=15000.0 * dr_mult, step=1000.0) if include_site_crane else 0.0
+    include_site_crane = ui.checkbox("Include Site Crane & Unloading", value=True)
+    site_crane_val = ui.number_input(f"Total Crane & Unloading Cost ({curr_code}):", min_value=0.0, value=15000.0 * dr_mult, step=1000.0) if include_site_crane else 0.0
     site_crane_unloading = site_crane_val / usd_to_eur if is_eur_display else site_crane_val
 
     st.markdown(f"#### 4. Heavy-Lift Route Survey ({curr_code})")
-    requires_heavy_lift = st.checkbox("Include heavy-lift / route survey (bridges, axle loads, turning radius)", value=True)
-    heavy_lift_val = st.number_input(f"Route survey cost ({curr_code}):", min_value=0.0, value=round(2500.0 * dr_mult, 2),
+    requires_heavy_lift = ui.checkbox("Include heavy-lift / route survey (bridges, axle loads, turning radius)", value=True)
+    heavy_lift_val = ui.number_input(f"Route survey cost ({curr_code}):", min_value=0.0, value=round(2500.0 * dr_mult, 2),
                                      step=500.0) if requires_heavy_lift else 0.0
     heavy_lift_usd = heavy_lift_val / usd_to_eur if is_eur_display else heavy_lift_val
 with tab4:
@@ -611,9 +664,9 @@ with tab4:
                    "The Ministry now requires a Toxins Permit both from the **importer / consignee** and for the **project site**.")
         tp1, tp2 = st.columns(2)
         with tp1:
-            has_importer_permit = st.checkbox("Importer / consignee holds a valid Toxins Permit", value=False)
+            has_importer_permit = ui.checkbox("Importer / consignee holds a valid Toxins Permit", value=False)
         with tp2:
-            has_site_permit = st.checkbox("Project site holds a valid Toxins Permit", value=False)
+            has_site_permit = ui.checkbox("Project site holds a valid Toxins Permit", value=False)
         has_toxins_permit = has_importer_permit and has_site_permit
         missing = []
         if not has_importer_permit:
@@ -633,7 +686,7 @@ with tab4:
                        "period and cover lithium-ion batteries.")
         toxins_missing_text = " and ".join(
             ([] if has_importer_permit else ["importer / consignee"]) + ([] if has_site_permit else ["project site"]))
-        toxins_val = st.number_input(f"Toxins Permits — one-time cost, importer + site (application, consultant, toxins officer) ({curr_code}):",
+        toxins_val = ui.number_input(f"Toxins Permits — one-time cost, importer + site (application, consultant, toxins officer) ({curr_code}):",
                                      min_value=0.0, value=0.0, step=500.0)
 
         st.markdown("##### 2. Ministry of Transport — Oversize / Heavy Transport Permit per BESS Container (Hebrew: היתר הובלה)")
@@ -642,7 +695,7 @@ with tab4:
             f"for the port-to-site haul — **{bess_count} permit(s)** for this project. "
             "Currently there is no fee, but submit the requests early so trucks are not held at the port."
         )
-        mot_per_unit_val = st.number_input(f"MoT transport permit cost per BESS container ({curr_code}):",
+        mot_per_unit_val = ui.number_input(f"MoT transport permit cost per BESS container ({curr_code}):",
                                            min_value=0.0, value=0.0, step=50.0)
         include_mot_approval = True
         mot_val = mot_per_unit_val * bess_count
@@ -652,9 +705,9 @@ with tab4:
                    "responsibility and are not included unless entered below.")
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            other_permits_val = st.number_input(f"Other permits / consultants ({curr_code}):", min_value=0.0, value=0.0, step=500.0)
+            other_permits_val = ui.number_input(f"Other permits / consultants ({curr_code}):", min_value=0.0, value=0.0, step=500.0)
         with col_t2:
-            epr_val = st.number_input(
+            epr_val = ui.number_input(
                 f"Battery recycling / EPR fee per BESS unit ({curr_code}):", min_value=0.0, value=0.0, step=50.0,
                 help="Israeli e-waste & batteries law — recycling through a recognised body (e.g. M.A.I / T.M.I). "
                      "Check with the recycling body whether it applies to your BESS units.")
@@ -664,13 +717,13 @@ with tab4:
     else:
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            bp_val = st.number_input(f"Total Battery Passport Cost ({curr_code}):", min_value=0.0, value=10000.0 * dr_mult, step=1000.0)
-            epr_val = st.number_input(f"Ongoing EPR Fee per BESS unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
+            bp_val = ui.number_input(f"Total Battery Passport Cost ({curr_code}):", min_value=0.0, value=10000.0 * dr_mult, step=1000.0)
+            epr_val = ui.number_input(f"Ongoing EPR Fee per BESS unit ({curr_code}):", min_value=0.0, value=450.0 * dr_mult, step=50.0)
         with col_t2:
-            include_regulatory = st.checkbox("Include local site entry permits", value=True)
-            perm_val = st.number_input(f"Local Permits Cost ({curr_code}):", min_value=0.0, value=5000.0 * dr_mult, step=500.0) if include_regulatory else 0.0
-            include_mot_approval = st.checkbox("Include National/Local Approval Fees", value=False)
-            mot_val = st.number_input(f"Approval Fees Cost ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=500.0) if include_mot_approval else 0.0
+            include_regulatory = ui.checkbox("Include local site entry permits", value=True)
+            perm_val = ui.number_input(f"Local Permits Cost ({curr_code}):", min_value=0.0, value=5000.0 * dr_mult, step=500.0) if include_regulatory else 0.0
+            include_mot_approval = ui.checkbox("Include National/Local Approval Fees", value=False)
+            mot_val = ui.number_input(f"Approval Fees Cost ({curr_code}):", min_value=0.0, value=3000.0 * dr_mult, step=500.0) if include_mot_approval else 0.0
 
     if is_eur_display:
         battery_passport_total_usd = bp_val / usd_to_eur
@@ -686,11 +739,11 @@ with tab4:
     st.markdown("---")
     st.markdown("#### Decommissioning & End-of-Life Financial Provision (EU Regulation Framework)")
     if is_israel:
-        include_decom_israel = st.checkbox(
+        include_decom_israel = ui.checkbox(
             "Include a decommissioning provision in the Israel budget (optional — EU framework does not apply)", value=False)
     st.info("Future Provision (Benchmark 59–90 USD/kWh)")
     
-    decom_scenario_choice = st.selectbox("Decommissioning Scenario Preset:", options=["Custom", "low (59 $/kWh)", "base (75 $/kWh)", "high (90 $/kWh)"], index=2)
+    decom_scenario_choice = ui.selectbox("Decommissioning Scenario Preset:", options=["Custom", "low (59 $/kWh)", "base (75 $/kWh)", "high (90 $/kWh)"], index=2)
     if "low" in decom_scenario_choice:
         decom_cost_per_kwh = 59.0
     elif "base" in decom_scenario_choice:
@@ -698,15 +751,15 @@ with tab4:
     elif "high" in decom_scenario_choice:
         decom_cost_per_kwh = 90.0
     else:
-        decom_cost_per_kwh = st.number_input("Decommissioning Cost per kWh ($/kWh):", min_value=0.0, value=75.0, step=5.0)
+        decom_cost_per_kwh = ui.number_input("Decommissioning Cost per kWh ($/kWh):", min_value=0.0, value=75.0, step=5.0)
 
     dc1, dc2 = st.columns(2)
     with dc1:
-        years_to_decom = st.number_input("Years to Decommissioning:", min_value=1, value=20, step=1)
-        decom_discount_rate = st.number_input("Discount Rate for PV (%):", min_value=0.0, value=4.0, step=0.5) / 100.0
+        years_to_decom = ui.number_input("Years to Decommissioning:", min_value=1, value=20, step=1)
+        decom_discount_rate = ui.number_input("Discount Rate for PV (%):", min_value=0.0, value=4.0, step=0.5) / 100.0
     with dc2:
-        decom_residual_per_kwh = st.number_input("Residual Material Recovery Value ($/kWh):", min_value=0.0, value=0.0, step=5.0)
-        include_oog_in_decom = st.checkbox("Include OOG Units in Decommissioning Provision", value=False)
+        decom_residual_per_kwh = ui.number_input("Residual Material Recovery Value ($/kWh):", min_value=0.0, value=0.0, step=5.0)
+        include_oog_in_decom = ui.checkbox("Include OOG Units in Decommissioning Provision", value=False)
 
     net_decom_rate = max(0.0, decom_cost_per_kwh - decom_residual_per_kwh)
     preview_decom_per_bess = bess_capacity_mwh * 1000.0 * net_decom_rate
@@ -721,13 +774,13 @@ with tab4:
     vc1, vc2 = st.columns(2)
     with vc1:
         default_vat = EUROPEAN_VAT_RATES.get(destination_country, 19.0)
-        applied_vat = st.number_input("Import VAT Rate (%):", min_value=0.0, value=default_vat, step=0.5)
+        applied_vat = ui.number_input("Import VAT Rate (%):", min_value=0.0, value=default_vat, step=0.5)
         st.caption(f"Default: standard VAT rate of {destination_country} ({default_vat:g}%), verified {VAT_TABLE_VERIFIED}. "
                    "Confirm with your customs broker for the specific HS code.")
-        vat_recovery_pct = st.number_input("VAT Recovery Rate (%):", min_value=0.0, value=100.0, step=5.0)
+        vat_recovery_pct = ui.number_input("VAT Recovery Rate (%):", min_value=0.0, value=100.0, step=5.0)
     with vc2:
-        vat_paid_by_supplier = st.checkbox("Import VAT Paid Directly by Supplier", value=False)
-        contingency_pct = st.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
+        vat_paid_by_supplier = ui.checkbox("Import VAT Paid Directly by Supplier", value=False)
+        contingency_pct = ui.number_input("Contingency Reserve (%):", min_value=0.0, value=5.0, step=1.0)
 
 with tab5:
     st.subheader("🧭 Multi-Option Port-to-Door Routing Agent")
@@ -812,11 +865,11 @@ with tab5:
 
         ir1, ir2, ir3 = st.columns(3)
         with ir1:
-            il_region = st.selectbox("Project Site Region (Israel):", list(ISRAEL_REGIONS.keys()), key="il_route_region")
+            il_region = ui.selectbox("Project Site Region (Israel):", list(ISRAEL_REGIONS.keys()))
         with ir2:
-            il_base_cost = st.number_input("Heavy-haul base cost per BESS unit (USD):", min_value=0.0, value=1500.0, step=100.0, key="il_base_cost")
+            il_base_cost = ui.number_input("Heavy-haul base cost per BESS unit (USD):", min_value=0.0, value=1500.0, step=100.0)
         with ir3:
-            il_km_rate = st.number_input("Heavy-haul rate per km per BESS unit (USD):", min_value=0.0, value=12.0, step=1.0, key="il_km_rate")
+            il_km_rate = ui.number_input("Heavy-haul rate per km per BESS unit (USD):", min_value=0.0, value=12.0, step=1.0)
 
         st.caption("Ocean transit days and road distances are **indicative defaults** — edit them in the table to match "
                    "current carrier schedules (Suez vs. Cape routing) and the exact site location. "
@@ -957,7 +1010,7 @@ with tab7:
     cash_disp = results["total_cash_requirement_incl_vat"] * disp_mult
 
     total_units_carbon = results["total_containers_project"]
-    carbon_per_unit = st.number_input(
+    carbon_per_unit = ui.number_input(
         "Transport CO2 factor (t CO2 per container, origin to site):", min_value=0.0, value=9.1, step=0.1,
         help="Indicative well-to-wheel estimate for one heavy container China → Europe/Israel incl. trucking. "
              "Replace with your carrier's emission report (e.g. GLEC-based) when available.")
@@ -1324,5 +1377,76 @@ with tab8:
         "Insurance, duty, VAT, contingency and project-level costs use the settings from the other tabs. "
         "Freight rates entered here are treated as actual quotes, so the trend multiplier is applied to equipment value only."
     )
+# ---------------------------------------------------------------------------
+# PROJECT FILE — save / load (sidebar)
+# ---------------------------------------------------------------------------
+def _df_records(df):
+    out = []
+    for rec in df.to_dict(orient="records"):
+        clean = {}
+        for k, v in rec.items():
+            if hasattr(v, "isoformat"):
+                v = v.isoformat()[:10]
+            elif v is not None and not isinstance(v, (str, bool)) and pd.isna(v):
+                v = None
+            elif hasattr(v, "item"):
+                v = v.item()
+            clean[k] = v
+        out.append(clean)
+    return out
+
+
+def _records_df(records, date_cols=()):
+    df = pd.DataFrame(records)
+    for c in date_cols:
+        if c in df.columns:
+            df[c] = [date.fromisoformat(v) if isinstance(v, str) and v else None for v in df[c]]
+    return df
+
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 💾 Save / Load Project")
+_project_file = {
+    "app": "Terra Vol Global",
+    "file_version": 1,
+    "saved_at": date.today().isoformat(),
+    "project_name": project_name,
+    "usd_eur": st.session_state.get("usd_eur"),
+    "values": _SAVED,
+    "shipments": _df_records(edited_shipments),
+    "shipment_lines": _df_records(edited_lines),
+}
+_slug = _re.sub(r"[^A-Za-z0-9]+", "_", project_name).strip("_") or "project"
+st.sidebar.download_button(
+    "⬇️ Save project file",
+    data=json.dumps(_project_file, ensure_ascii=False, indent=1, default=str),
+    file_name=f"{_slug}.terravol.json",
+    mime="application/json",
+    help="Downloads all inputs, shipments and permits of this project. Load it later or send it to a partner.",
+)
+_upload = st.sidebar.file_uploader("⬆️ Load project file", type=["json"], key="project_upload")
+if _upload is not None:
+    _upload_id = f"{_upload.name}-{_upload.size}"
+    if st.session_state.get("_loaded_upload_id") != _upload_id:
+        try:
+            _data = json.loads(_upload.getvalue().decode("utf-8"))
+            if _data.get("app") != "Terra Vol Global" or "values" not in _data:
+                raise ValueError("not a Terra Vol project file")
+            st.session_state["_loaded_project_values"] = _data["values"]
+            if _data.get("usd_eur"):
+                st.session_state["usd_eur"] = float(_data["usd_eur"])
+            if _data.get("shipments") is not None:
+                st.session_state["msp_shipments"] = _records_df(_data["shipments"], date_cols=("ETD", "ETA"))
+                st.session_state["msp_lines"] = _records_df(_data.get("shipment_lines", []))
+                for _k in ("msp_shipments_editor", "msp_lines_editor"):
+                    st.session_state.pop(_k, None)
+            st.session_state["_loaded_upload_id"] = _upload_id
+            st.session_state["_loaded_project_name"] = _data.get("project_name", "")
+            st.rerun()
+        except Exception as _e:
+            st.sidebar.error(f"Could not load this file: {_e}")
+if st.session_state.get("_loaded_project_name"):
+    st.sidebar.success(f"Loaded: {st.session_state['_loaded_project_name']}")
+
 st.markdown("---")
 st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")
