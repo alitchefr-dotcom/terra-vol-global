@@ -26,20 +26,20 @@ with tab_supp:
         _med = lambda xs: float(pd.Series(xs).median()) if xs else None
         _d20 = _med([_num(r["Freight / 20ft"]) * _fx_usd(r) for r in _c20]) or unit_freight_bess
         _d40 = _med([_num(r["Freight / 40ft"]) * _fx_usd(r) for r in _c40]) or unit_freight_bess * 1.5
-        sup_f20 = ui.number_input(f"Ocean freight per 20ft ({curr_code}):", min_value=0.0, value=round(_d20 * _cm), step=500.0,
+        sup_f20 = ui.number_input(f"Ocean freight per 20ft ({curr_code}):", min_value=0.0, value=float(round(_d20 * _cm)), step=500.0,
                                   help="Default: median of the container offers received, otherwise the Supply Chain tab")
-        sup_f40 = ui.number_input(f"Ocean freight per 40ft / 40HC ({curr_code}):", min_value=0.0, value=round(_d40 * _cm),
+        sup_f40 = ui.number_input(f"Ocean freight per 40ft / 40HC ({curr_code}):", min_value=0.0, value=float(round(_d40 * _cm)),
                                   step=500.0)
         sup_mpp = ui.number_input(f"MPP / breakbulk freight per unit ({curr_code}):", min_value=0.0,
-                                  value=round(20000 * _cm), step=1000.0)
+                                  value=float(round(20000 * _cm)), step=1000.0)
     with sp3:
         sup_overweight = ui.number_input(f"Heavy-box surcharge per box > 30.48 t ({curr_code}):", min_value=0.0,
-                                         value=round(800 * _cm), step=100.0)
+                                         value=float(round(800 * _cm)), step=100.0)
         sup_abnormal = ui.number_input(f"Abnormal road load surcharge per unit ({curr_code}):", min_value=0.0,
-                                       value=round(1500 * _cm), step=250.0,
+                                       value=float(round(1500 * _cm)), step=250.0,
                                        help="Escort, special trailer and permit, on top of normal trucking")
         sup_trucking = ui.number_input(f"Port-to-site trucking + destination THC per unit ({curr_code}):", min_value=0.0,
-                                       value=round((dray_bess * _to_usd + dthc_bess * _to_usd) * _cm), step=250.0)
+                                       value=float(round((dray_bess * _to_usd + dthc_bess * _to_usd) * _cm)), step=250.0)
     _m_ship = max(1.0, (delivery_date - brief_fob_date).days / 30.4) if (delivery_date and brief_fob_date) else 2.0
     st.caption(f"Also used from the project: BAF {format_currency(baf_per_teu_usd * _cm, curr_code)}/TEU, insurance "
                f"{insurance_pct:g}%, duty {customs_duty_pct:g}% (BESS) / {mvs_customs_duty_pct:g}% (MVS), import VAT "

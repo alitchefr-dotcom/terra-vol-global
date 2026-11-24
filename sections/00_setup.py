@@ -109,6 +109,13 @@ class _UI:
                     pass
             else:
                 kw["value"] = v
+        if kind == "number_input" and not args:
+            # Streamlit refuses a mix of int and float in min / max / value / step: use float if any is float
+            _nk = [k for k in ("min_value", "max_value", "value", "step") if isinstance(kw.get(k), (int, float))
+                   and not isinstance(kw.get(k), bool)]
+            if any(isinstance(kw[k], float) for k in _nk):
+                for k in _nk:
+                    kw[k] = float(kw[k])
         res = getattr(self.c, kind)(label, *args, **kw)
         _SAVED[pid] = res.isoformat() if isinstance(res, date) else res
         return res
