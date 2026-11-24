@@ -110,6 +110,32 @@ with tab_sail:
         },
     )
 
+    def _append_offers(_add, msg):
+        """Append offer lines to the Offers table: new option codes R1, R2…, defaults for empty list fields."""
+        _existing = set(str(x) for x in sail_edit["Option"])
+        _k = 1
+        _opts = []
+        for _ in range(len(_add)):
+            while f"R{_k}" in _existing:
+                _k += 1
+            _opts.append(f"R{_k}")
+            _existing.add(f"R{_k}")
+        _add = _add.copy()
+        _add["Option"] = _opts
+        _defaults = {"Vessel Type": "Container vessel", "Routing": "Other", "Currency": "USD", "Price Basis": "Per unit",
+                     "Terms": "Liner terms", "DG Acceptance": "Not stated", "Stowage": "TBC", "Hot Work / D-rings": "TBC",
+                     "Direct": False}
+        for _c, _v in _defaults.items():
+            if _c not in _add.columns:
+                _add[_c] = _v
+            else:
+                _add[_c] = _add[_c].where(_add[_c].notna() & (_add[_c].astype(str) != "nan"), _v)
+        _add = _add[[c for c in _add.columns if c in sail_edit.columns or c == "Option"]]
+        st.session_state.sail_df = pd.concat([sail_edit, _add], ignore_index=True)
+        st.session_state.pop("sail_editor", None)
+        st.success(msg.format(n=len(_add)))
+        st.rerun()
+
     _imp = st.file_uploader("⬆️ Import offer responses (filled RFQ response templates, .xlsx)", type=["xlsx"],
                             accept_multiple_files=True, key="offer_import")
     if _imp:
@@ -128,28 +154,79 @@ with tab_sail:
             if len(_df):
                 _new.append(_df)
         if _new:
-            _add = pd.concat(_new, ignore_index=True)
-            _existing = set(str(x) for x in sail_edit["Option"])
-            _k = 1
-            _opts = []
-            for _, _r in _add.iterrows():
-                while f"R{_k}" in _existing:
-                    _k += 1
-                _opts.append(f"R{_k}")
-                _existing.add(f"R{_k}")
-            _add["Option"] = _opts
-            _defaults = {"Vessel Type": "Container vessel", "Routing": "Other", "Currency": "USD", "Price Basis": "Per unit",
-                         "Terms": "Liner terms", "DG Acceptance": "Not stated", "Stowage": "TBC", "Hot Work / D-rings": "TBC",
-                         "Direct": False}
-            for _c, _v in _defaults.items():
-                if _c not in _add.columns:
-                    _add[_c] = _v
-                else:
-                    _add[_c] = _add[_c].where(_add[_c].notna() & (_add[_c].astype(str) != "nan"), _v)
-            st.session_state.sail_df = pd.concat([sail_edit, _add], ignore_index=True)
-            st.session_state.pop("sail_editor", None)
-            st.success(f"Imported {len(_add)} offer line(s).")
-            st.rerun()
+            _append_offers(pd.concat(_new, ignore_index=True), "Imported {n} offer line(s).")
+
+    # ---------------- AI import from PDF / e-mail / image / pasted text ----------------
+    def _ai_key():
+        try:
+            k = st.secrets.get("ANTHROPIC_API_KEY")
+        except Exception:
+            k = None
+        return k or os.environ.get("ANTHROPIC_API_KEY")
+
+    with st.expander("🤖 Import offers with AI — PDF, e-mail (.eml), screenshot, spreadsheet or pasted text"):
+        _key = _ai_key()
+        if not _key:
+            st.info("AI import is not configured. Add ANTHROPIC_API_KEY to the app secrets "
+                    "(Streamlit Cloud › App settings › Secrets).")
+        else:
+            st.caption("The files are sent to the AI service (Anthropic Claude API) only to read the offers; they are "
+                       "not stored by the app and not used to train AI models. Every line is shown for review before "
+                       "it is added — always check prices and dates against the original.")
+            _ai_files = st.file_uploader("Offer documents", type=["pdf", "eml", "png", "jpg", "jpeg", "webp", "xlsx",
+                                                                  "xls", "csv", "txt", "html", "msg"],
+                                         accept_multiple_files=True, key="ai_offer_files")
+            _ai_text = st.text_area("…or paste the e-mail / quotation text:", value="", key="ai_offer_text", height=120)
+            if st.button("🔎 Read offers", key="ai_read"):
+                _blocks, _warns = [], []
+                for _f in (_ai_files or [])[:10]:
+                    _b, _w = _ai_mod.file_to_blocks(_f.name, _f.getvalue())
+                    _blocks += _b
+                    _warns += _w
+                if _ai_text.strip():
+                    _blocks.append({"type": "text", "text": "Pasted text:\n" + _ai_text[:100000]})
+                for _w in _warns:
+                    st.warning(_w)
+                _ctx = (f"Project: {project_name}. Destination: {destination_country}. Cargo: "
+                        + "; ".join(f"{b['Qty']} x {b['Item']} {b['Container']} {b['Weight / Unit (t)']} t"
+                                    for b in bom_rows) +
+                        f". Ports in the app: {', '.join(SAIL_POD_OPTIONS)}.")
+                try:
+                    with st.spinner("Reading the offers…"):
+                        _rows, _summary, _usage = _ai_mod.extract_offers(_key, _blocks, SAIL_POD_OPTIONS, _ctx)
+                    st.session_state["_ai_preview"] = {"rows": _rows, "summary": _summary, "usage": _usage}
+                except RuntimeError as _e:
+                    st.error(str(_e))
+            _prev = st.session_state.get("_ai_preview")
+            if _prev:
+                _u = _prev["usage"]
+                st.markdown(f"**{len(_prev['rows'])} offer line(s) found.** {_prev['summary']}")
+                st.caption(f"AI usage: {_u['input_tokens']:,} + {_u['output_tokens']:,} tokens ≈ ${_u['cost_usd']:.3f}"
+                           + (" · ⚠️ answer was cut off — upload fewer documents at a time"
+                              if _u.get("stop_reason") == "max_tokens" else ""))
+                if _prev["rows"]:
+                    _pv = pd.DataFrame(_prev["rows"])
+                    _first = ["AI Notes", "Offered By", "Carrier", "Vessel", "Vessel Type", "POD", "ETD", "ETA",
+                              "Currency", "Freight / 20ft", "Freight / 40ft", "Lump Sum"]
+                    _pv = _pv[[c for c in _first if c in _pv.columns] + [c for c in _pv.columns if c not in _first]]
+                    _pv.insert(0, "Add", True)
+                    _pv_edit = st.data_editor(_pv, key="ai_preview_editor", hide_index=True, use_container_width=True,
+                                              column_config={"Add": st.column_config.CheckboxColumn("Add"),
+                                                             "POD": st.column_config.SelectboxColumn("POD", options=SAIL_POD_OPTIONS)})
+                    _c1, _c2 = st.columns(2)
+                    with _c1:
+                        if st.button("➕ Add selected lines to the offers", key="ai_add"):
+                            _sel = _pv_edit[_pv_edit["Add"] == True].drop(columns=["Add"])  # noqa: E712
+                            _notes = _sel.pop("AI Notes") if "AI Notes" in _sel.columns else None
+                            st.session_state.pop("_ai_preview", None)
+                            st.session_state.pop("ai_preview_editor", None)
+                            if len(_sel):
+                                _append_offers(_sel.reset_index(drop=True), "Added {n} offer line(s) from the AI import.")
+                    with _c2:
+                        if st.button("✖ Discard", key="ai_discard"):
+                            st.session_state.pop("_ai_preview", None)
+                            st.session_state.pop("ai_preview_editor", None)
+                            st.rerun()
 
     # --- heaviest / DG cargo from the BOM, used by the checks
     _bom_valid = [r for r in bom_rows]
