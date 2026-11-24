@@ -40,6 +40,8 @@ company = "Terra Vol"
 role = "admin"                        # admin | user (admins see the hash tool)
 ai = true                             # may use the AI offer import
 ai_daily_limit = 50                   # AI reads per day
+default_country = "Israel"            # optional: country shown at login
+default_currency = "USD"              # optional: EUR or USD
 # disabled = true                     # blocks the user at the next click
 ```
 - Without any `[auth_users.*]` the app stays open and the AI import is disabled.

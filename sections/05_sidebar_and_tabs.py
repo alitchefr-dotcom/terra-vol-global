@@ -12,11 +12,36 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### 📁 Project")
 project_name = ui_sidebar.text_input("Project Name:", value="New BESS Project")
 st.sidebar.markdown("---")
+# Country and currency survive a page refresh through the page address (?country=Israel&currency=USD);
+# otherwise the user's default from the Secrets is used.
+def _start_choice(param, options, user_key):
+    try:
+        v = st.query_params.get(param)
+    except Exception:
+        v = None
+    if not v and current_user:
+        v = current_user.get(user_key)
+    for i, o in enumerate(options):
+        if v and (o == v or o.startswith(str(v))):
+            return i
+    return 0
+
+
+def _remember(param, value):
+    try:
+        if st.query_params.get(param) != value:
+            st.query_params[param] = value
+    except Exception:
+        pass
+
+
+_CURRENCIES = ["EUR (€)", "USD ($)"]
 display_currency = ui_sidebar.selectbox(
     "Main Display Currency:",
-    options=["EUR (€)", "USD ($)"],
-    index=0
+    options=_CURRENCIES,
+    index=_start_choice("currency", _CURRENCIES, "default_currency")
 )
+_remember("currency", display_currency[:3])
 curr_code = "EUR" if "EUR" in display_currency else "USD"
 is_eur_display = ("EUR" in display_currency)
 
@@ -44,11 +69,13 @@ st.sidebar.number_input(
 usd_to_eur = st.session_state.usd_eur
 st.sidebar.button("Refresh Live Rates", on_click=refresh_rate)
 
+_COUNTRIES = list(EUROPEAN_VAT_RATES.keys())
 destination_country = ui_sidebar.selectbox(
     "Project Destination Country:",
-    options=list(EUROPEAN_VAT_RATES.keys()),
-    index=0
+    options=_COUNTRIES,
+    index=_start_choice("country", _COUNTRIES, "default_country")
 )
+_remember("country", destination_country)
 
 COUNTRY_CODES = {"Israel": "IL"}
 dest_code = COUNTRY_CODES.get(destination_country, destination_country[:2].upper())
