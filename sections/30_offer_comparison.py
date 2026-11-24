@@ -18,6 +18,20 @@ with tab_quote:
     _units_total = sum(bom_totals.values())
     _per_vessel_need = -(-_units_total // max(1, min_vessels)) if _units_total else 0
 
+    _rows_by_opt_c = {str(x.get("Option")): x for _, x in sail_edit.iterrows()}
+    _bom_t = sum(b["Qty"] * b["Weight / Unit (t)"] for b in bom_rows)
+    _bom_teu = sum(b["Qty"] * teu_factor(b["Container"], 1.0) for b in bom_rows)
+
+    def offer_co2(r):
+        row = _rows_by_opt_c.get(r["Option"])
+        pol = str(row.get("POL") or "Shanghai") if row is not None else "Shanghai"
+        pod_xy = PORT_COORDS.get(r["POD"])
+        sea = _carbon_mod.sea_km(pol, r["POD"], pod_xy, r.get("routing") or "Cape of Good Hope")
+        road = road_km(site_latlon, pod_xy) if (site_latlon and pod_xy) else 0.0
+        kind = "container" if r["Type"] == "Container vessel" else "mpp"
+        return _carbon_mod.shipment_emissions(sea, kind, _bom_teu, _bom_t, road, factory_km, carbon_factors,
+                                              co2_basis)["total_t"]
+
     cmp = []
     for r in sail_results:
         if cmp_only_eligible and not r["eligible"]:
@@ -44,7 +58,7 @@ with tab_quote:
             risks.append(f"D-ring hot work {'by shipper' if r['hot_work'] == 'By shipper' else 'TBC'}")
         if r["terms"] != "Liner terms":
             risks.append(f"{r['terms']} terms — stevedoring {'not included' if r['terms'] in ('FIO', 'FIOS') else 'partly excluded'}")
-        cmp.append({"r": r, "full_norm": full_norm, "full_quoted": full_quoted, "risks": risks})
+        cmp.append({"r": r, "full_norm": full_norm, "full_quoted": full_quoted, "risks": risks, "co2": offer_co2(r)})
 
     if not cmp:
         st.info("No offers to compare yet — add them in the Offers Received tab.")
@@ -73,7 +87,7 @@ with tab_quote:
         headers = ["Rank", "Offered by", "Quote ref", "Carrier", "Vessel", "Type", "POD", "ETD", "ETA", "Transit",
                    "Free days", "Valid until", "Terms", "Stowage", "DG accept.", "Compliance", f"Per BESS unit ({_cmp_cur})",
                    f"Full BOM — quoted ({_cmp_cur})", f"Full BOM — like-for-like ({_cmp_cur})",
-                   f"Per kWh ({_cmp_cur})", "vs cheapest", "Risk flags"]
+                   f"Per kWh ({_cmp_cur})", "CO2e full BOM (t)", "vs cheapest", "Risk flags"]
         rows_out, fills, rank = [], [], 0
         for c in cmp:
             r = c["r"]
@@ -94,6 +108,7 @@ with tab_quote:
                 f"Full BOM — quoted ({_cmp_cur})": round(c["full_quoted"] * _cm),
                 f"Full BOM — like-for-like ({_cmp_cur})": round(c["full_norm"] * _cm),
                 f"Per kWh ({_cmp_cur})": round(c["full_norm"] * _cm / _kwh, 2) if _kwh else "",
+                "CO2e full BOM (t)": round(c["co2"], 1),
                 "vs cheapest": ("cheapest" if c is cheapest else f"+{delta:.1f}%") if r["eligible"] else "—",
                 "Risk flags": " · ".join(c["risks"]),
             })

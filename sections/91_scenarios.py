@@ -29,6 +29,7 @@ def _current_kpis():
         "Peak cash month": str(_monthly["Cumulative"].idxmax()) if _monthly is not None else None,
         "L/C fees (USD)": round(G.get("lc_fee_total", 0.0) + (G.get("lc_fixed", 0.0) if G.get("pay_kind") == "LC" else 0.0)),
         "Import VAT financing (USD)": round((G.get("vat_cost", 0.0) or 0.0) / _m),
+        "Transport CO2e (t)": round(G.get("co2_total", 0.0) or 0.0, 1),
     }
 
 

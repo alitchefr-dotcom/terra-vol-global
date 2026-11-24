@@ -18,3 +18,7 @@ End-to-end supply chain &amp; financial control software for BESS and solar ener
 | `baf_rates.json` | Monthly fuel-surcharge table, updated by a scheduled task |
 
 Order matters: a section can use variables defined in earlier sections. Keep the two-digit prefixes when adding files.
+
+### Carbon footprint & dashboard
+- `carbon.py` — route-based transport emissions (GLEC Framework / ISO 14083, WTW): estimated sea distance via Suez or the Cape, road distance from the site GPS, editable factors.
+- `sections/89_dashboard.py` — Project Dashboard (first tab): KPIs, MWh by status, key dates, open alerts.

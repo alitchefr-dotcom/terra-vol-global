@@ -23,17 +23,17 @@ with tab8:
              "Origin Port": "Shanghai", "POD": POD_OPTIONS[0],
              "ETD": date(2027, 3, 1), "ETA": date(2027, 4, 5), "Currency": "USD",
              "Origin Charges / Unit": 350.0, "Port Days": 6, "Free Days": 3,
-             "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 0.0},
+             "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 0.0, "Routing": "Cape of Good Hope"},
             {"Shipment": "Shipment 2", "Carrier": "MPP Operator", "Service": "MPP Vessel",
              "Origin Port": "Shanghai", "POD": POD_OPTIONS[0],
              "ETD": date(2027, 4, 1), "ETA": date(2027, 5, 10), "Currency": "USD",
              "Origin Charges / Unit": 350.0, "Port Days": 4, "Free Days": 3,
-             "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 5000.0},
+             "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 5000.0, "Routing": "Cape of Good Hope"},
             {"Shipment": "Shipment 3", "Carrier": "MSC", "Service": "Container Line - COC",
              "Origin Port": "Ningbo-Zhoushan", "POD": POD_OPTIONS[0],
              "ETD": date(2027, 3, 15), "ETA": date(2027, 4, 20), "Currency": "USD",
              "Origin Charges / Unit": 350.0, "Port Days": 6, "Free Days": 5,
-             "Daily Rate / Unit after Free Days": 150.0, "Extra Lump Sum": 0.0},
+             "Daily Rate / Unit after Free Days": 150.0, "Extra Lump Sum": 0.0, "Routing": "Cape of Good Hope"},
         ])
         st.session_state.msp_lines = pd.DataFrame([
             {"Shipment": "Shipment 1", "Equipment": "BESS", "Qty": 10, "Container Size": "20ft", "Currency": "USD",
@@ -81,7 +81,8 @@ with tab8:
                                  "Currency": "USD", "Origin Charges / Unit": round(float(sr.get("Origin Local / Unit") or 0)
                                      * (1 / usd_to_eur if str(cur).upper().startswith("EUR") else 1), 2),
                                  "Port Days": int(l["Port Days"]), "Free Days": int(sr.get("Free Days") or 0),
-                                 "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 0.0})
+                                 "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 0.0,
+                                 "Routing": sr.get("Routing") if sr.get("Routing") in ROUTINGS else "Cape of Good Hope"})
             size = _bom_size.get(l["Equipment"], "20ft")
             _sres = _sail_by_opt.get(l["Option"], {})
             _all_in = _sres.get("cost_usd", {}).get(l["Equipment"], 0.0)
@@ -99,6 +100,9 @@ with tab8:
             st.session_state.pop("msp_lines_editor", None)
             st.success(f"Loaded the allocation plan: {len(_sh_rows)} shipment(s) from the Sailing Options tab.")
 
+    if "Routing" not in st.session_state.msp_shipments.columns:
+        st.session_state.msp_shipments["Routing"] = "Suez Canal / Red Sea" if not req_no_red_sea else "Cape of Good Hope"
+        st.session_state.pop("msp_shipments_editor", None)
     st.markdown("#### 1. Shipments")
     st.caption(
         "Daily Rate after Free Days = carrier **demurrage** for COC containers, or terminal **port storage** "
@@ -125,6 +129,8 @@ with tab8:
             "Free Days": st.column_config.NumberColumn("Free Days", min_value=0, step=1),
             "Daily Rate / Unit after Free Days": st.column_config.NumberColumn("Daily Rate / Unit after Free Days", min_value=0.0, step=10.0, format="%.0f"),
             "Extra Lump Sum": st.column_config.NumberColumn("Extra Lump Sum", min_value=0.0, step=500.0, format="%.0f"),
+            "Routing": st.column_config.SelectboxColumn("Routing", options=ROUTINGS, required=True,
+                                                        help="Used for the route-based carbon footprint"),
         },
     )
 
@@ -190,6 +196,7 @@ with tab8:
             "free_days": row.get("Free Days"),
             "daily_rate_per_unit": row.get("Daily Rate / Unit after Free Days"),
             "extra_lump_sum": row.get("Extra Lump Sum"),
+            "routing": row.get("Routing") if row.get("Routing") in ROUTINGS else "Cape of Good Hope",
         })
 
     msp_lines = []
@@ -345,6 +352,78 @@ with tab8:
         st.info("Add at least one shipment and one equipment line to see costs.")
 
     # --- Project totals ---
+    # ---------------- Route-based carbon footprint (GLEC) ----------------
+    st.markdown("#### Carbon Footprint by Route (GLEC Framework, well-to-wheel)")
+    with st.expander("Emission factors & assumptions"):
+        ef1, ef2, ef3, ef4 = st.columns(4)
+        with ef1:
+            ef_container = ui.number_input("Container vessel (kg CO2e / TEU-km):", min_value=0.0,
+                                           value=_carbon_mod.GLEC_FACTORS["container_teu_km"], step=0.001, format="%.4f")
+        with ef2:
+            ef_mpp = ui.number_input("MPP / general cargo (kg CO2e / t-km):", min_value=0.0,
+                                     value=_carbon_mod.GLEC_FACTORS["mpp_t_km"], step=0.001, format="%.4f")
+        with ef3:
+            ef_truck = ui.number_input("Truck, container (kg CO2e / t-km):", min_value=0.0,
+                                       value=_carbon_mod.GLEC_FACTORS["truck_t_km"], step=0.001, format="%.3f")
+        with ef4:
+            factory_km = ui.number_input("Factory → port of loading (km):", min_value=0, value=400, step=50)
+        co2_basis_lbl = ui.selectbox("Container vessel allocation:", ["Per TEU (GLEC default)",
+                                                                     "Per tonne (10 t per TEU) — heavier boxes count more"])
+        co2_basis = "mass" if co2_basis_lbl.startswith("Per tonne") else "teu"
+        st.caption("Defaults: GLEC v3.1 container vessel (other global) 0.0883 kg/TEU-km; GLEC v3.0 general cargo "
+                   "10–20 kdwt VLSFO 0.0192 kg/t-km; GLEC v3.2 articulated truck 34–40 t container 0.101 kg/t-km "
+                   "(TTW 0.078 + WTT 0.023). Sea distance estimated along the route (±5–10%); road distance from the "
+                   "site GPS (straight line × 1.3). Container vessels are counted per TEU (GLEC method).")
+    carbon_factors = {"container_teu_km": ef_container, "mpp_t_km": ef_mpp, "truck_t_km": ef_truck}
+    _w_by_type, _teu_by_type = {}, {}
+    _q_by_type = {}
+    for b in bom_rows:
+        q = max(1, b["Qty"])
+        _w_by_type[b["Type"]] = _w_by_type.get(b["Type"], 0.0) + q * b["Weight / Unit (t)"]
+        _teu_by_type[b["Type"]] = _teu_by_type.get(b["Type"], 0.0) + q * teu_factor(b["Container"], 1.0)
+        _q_by_type[b["Type"]] = _q_by_type.get(b["Type"], 0) + q
+    _w_by_type = {t: v / _q_by_type[t] for t, v in _w_by_type.items()}
+    _teu_by_type = {t: v / _q_by_type[t] for t, v in _teu_by_type.items()}
+    _ship_meta = {sh["name"]: sh for sh in msp_shipments}
+
+    def shipment_co2(r, routing=None):
+        sh = _ship_meta.get(r["name"], {})
+        pod = sh.get("pod") or ""
+        pod_xy = PORT_COORDS.get(pod)
+        rt = routing or sh.get("routing") or "Cape of Good Hope"
+        sea = _carbon_mod.sea_km(sh.get("origin") or "Shanghai", pod, pod_xy, rt)
+        tonnes = sum(q * _w_by_type.get(t, 20.0) for t, q in r["units_by_type"].items())
+        teu = sum(q * _teu_by_type.get(t, 1.0) for t, q in r["units_by_type"].items())
+        road = road_km(site_latlon, pod_xy) if (site_latlon and pod_xy) else 0.0
+        kind = "container" if str(sh.get("service", "")).startswith("Container") else "mpp"
+        e = _carbon_mod.shipment_emissions(sea, kind, teu, tonnes, road, factory_km, carbon_factors, co2_basis)
+        e.update({"sea_km": sea or 0.0, "road_km": road, "tonnes": tonnes, "teu": teu, "routing": rt})
+        return e
+
+    co2_rows, co2_total, co2_alt_total = [], 0.0, 0.0
+    for r in plan["shipments"]:
+        if not r["units"]:
+            continue
+        e = shipment_co2(r)
+        alt_rt = "Suez Canal / Red Sea" if e["routing"] == "Cape of Good Hope" else "Cape of Good Hope"
+        e_alt = shipment_co2(r, alt_rt)
+        co2_total += e["total_t"]
+        co2_alt_total += e_alt["total_t"]
+        co2_rows.append({"Shipment": r["name"], "Routing": e["routing"], "Sea (km)": round(e["sea_km"]),
+                         "Road (km)": round(e["road_km"] + factory_km), "Cargo (t)": round(e["tonnes"], 1),
+                         "TEU": round(e["teu"], 1), "Sea t CO2e": round(e["sea_t"], 1), "Road t CO2e": round(e["road_t"], 1),
+                         "Total t CO2e": round(e["total_t"], 1),
+                         f"If {alt_rt.split(' /')[0].replace(' of Good Hope', '')} (t)": round(e_alt["total_t"], 1)})
+    if co2_rows:
+        st.dataframe(pd.DataFrame(co2_rows), use_container_width=True, hide_index=True)
+        cc1, cc2, cc3 = st.columns(3)
+        cc1.metric("Transport emissions", f"{co2_total:,.1f} t CO2e")
+        cc2.metric("Per MWh (DC)", f"{co2_total / (project_kwh_dc / 1000):,.2f} t CO2e" if project_kwh_dc else "—")
+        cc3.metric("Other routing for all shipments", f"{co2_alt_total:,.1f} t CO2e",
+                   f"{co2_alt_total - co2_total:+,.1f} t", delta_color="inverse")
+    else:
+        co2_total = 0.0
+
     st.markdown(f"#### 5. Project Total — All Shipments ({curr_code})")
     t1, t2, t3, t4 = st.columns(4)
     t1.metric("Logistics Cost (all shipments, ex VAT)", format_currency(plan["logistics_total_ex_vat"] * msp_mult, curr_code))

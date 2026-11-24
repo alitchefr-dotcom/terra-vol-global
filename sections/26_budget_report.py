@@ -54,7 +54,8 @@ with tab7:
 
     total_units_carbon = results["total_containers_project"]
     carbon_per_unit = ui.number_input(
-        "Transport CO2 factor (t CO2 per container, origin to site):", min_value=0.0, value=9.1, step=0.1,
+        "Simplified transport CO2 factor (t CO2 per container) — route-based GLEC figures are in the Multi-Shipment Planner:",
+        min_value=0.0, value=9.1, step=0.1,
         help="Indicative well-to-wheel estimate for one heavy container China → Europe/Israel incl. trucking. "
              "Replace with your carrier's emission report (e.g. GLEC-based) when available.")
     total_carbon_tons = total_units_carbon * carbon_per_unit
