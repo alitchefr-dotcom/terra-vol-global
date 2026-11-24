@@ -116,6 +116,7 @@ def load_users(secrets):
             "ai": bool(cfg.get("ai", False)), "ai_daily_limit": int(cfg.get("ai_daily_limit", 30) or 0),
             "password_hash": cfg["password_hash"], "disabled": bool(cfg.get("disabled", False)),
             "default_country": cfg.get("default_country") or "", "default_currency": cfg.get("default_currency") or "",
+            "default_view": cfg.get("default_view") or "",
         }
     return users
 

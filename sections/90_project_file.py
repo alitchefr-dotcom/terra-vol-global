@@ -2,6 +2,11 @@
 # Terra Vol Global — section 90_project_file: Project restore function and the project file content.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 def _apply_project_data(_data):
+    # a loaded project is a real project: no demo rows for the tables it contains, empty tables for the rest
+    _file_keys = {"bom": "bom_df", "sailings": "sail_df", "allocation_plan": "plan_df", "shipments": "msp_shipments",
+                  "lines": "msp_lines", "suppliers": "sup_df"}
+    st.session_state["_empty_project"] = True
+    st.session_state["_blanked"] = {v for k, v in _file_keys.items() if _data.get(k) is not None}
     """Restore a saved project (file or scenario snapshot) into the session; caller reruns."""
     st.session_state["_loaded_project_values"] = _data["values"]
     if _data.get("usd_eur"):

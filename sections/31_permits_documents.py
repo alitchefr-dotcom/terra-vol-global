@@ -108,7 +108,9 @@ with tab_permits:
                               "POD": s_["POD"].split(",")[0] if s_ else "", "ETA": eta, "B/L No.": "", "Container No.": "",
                               "Serial No.": "", "Request No.": "", "Route / Stops": f"{s_['POD'].split(',')[0] if s_ else 'Port'} → {_site}",
                               "Status": "Not opened"}, **{d: False for d in tmpl["unique_docs"]}))
-        st.session_state[_req_key] = pd.DataFrame(rows)
+        _req_cols = ["Unit", "Vessel", "POD", "ETA", "B/L No.", "Container No.", "Serial No.", "Request No.",
+                     "Route / Stops", "Status"] + list(tmpl["unique_docs"])
+        st.session_state[_req_key] = pd.DataFrame(rows, columns=_req_cols)
         st.session_state.pop(f"{_req_key}_editor", None)
     st.caption("Fill B/L, container and serial numbers as they become known, the request number once the haulier opens the "
                "request, and tick the unique documents sent. Rebuild only when the plan changes (it resets the table).")

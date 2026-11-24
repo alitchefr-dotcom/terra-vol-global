@@ -11,6 +11,22 @@ st.sidebar.markdown("---")
 
 st.sidebar.markdown("### 📁 Project")
 project_name = ui_sidebar.text_input("Project Name:", value="New BESS Project")
+if st.session_state.get("_empty_project"):
+    if st.sidebar.button("🎓 Show the demo project", help="Reload the sample data to explore the app"):
+        for _k, _ek in _DEMO_TABLES.items():
+            st.session_state.pop(_k, None)
+            st.session_state.pop(_ek, None)
+        st.session_state["_empty_project"] = False
+        st.session_state.pop("_blanked", None)
+        st.rerun()
+else:
+    st.sidebar.info("Demo data is shown to explore the app.")
+    if st.sidebar.button("🆕 Start an empty project", help="Removes the sample BOM, offers, shipments and suppliers"):
+        st.session_state["_empty_project"] = True
+        st.session_state["_blanked"] = set()
+        for _ek in _DEMO_TABLES.values():
+            st.session_state.pop(_ek, None)
+        st.rerun()
 st.sidebar.markdown("---")
 # Country and currency survive a page refresh through the page address (?country=Israel&currency=USD);
 # otherwise the user's default from the Secrets is used.
@@ -104,24 +120,47 @@ with col_logo:
 
 st.markdown("---")
 
-tab_dash, tab0, tab_rfq, tab_sail, tab_quote, tab_supp, tab_permits, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab_site, tab_cash, tab_budget, tab_scen = st.tabs([
-    "🏠 Dashboard",
-    "📝 Project Brief & BOM",
-    "📨 Request for Quote",
-    "⛴️ Offers Received",
-    "⚖️ Offer Comparison",
-    "🏭 Supplier Comparison",
-    "🛂 Permits & Documents",
-    "📋 Equipment Mix & Quantities",
-    "🚢 Supply Chain & Incoterms",
-    "📦 Storage, Demurrage & Drayage",
-    "⚖️ Regulation & Approvals",
-    "🗺️ European Route Options",
-    "✅ Regulatory Checklist",
-    "📊 Budget & Carbon Report",
-    "🧩 Multi-Shipment Planner",
-    "🏗️ Site Readiness & Storage",
-    "💵 Cash Flow",
-    "📒 Budget vs Actual",
-    "🔀 Scenarios"
-])
+# ---------------- Views: which tabs each role sees ----------------
+# Every tab is always computed (the tabs feed each other); a view only decides which ones are shown.
+_TAB_DEFS = [
+    ("tab_dash", "🏠 Dashboard"), ("tab0", "📝 Project Brief & BOM"), ("tab_rfq", "📨 Request for Quote"),
+    ("tab_sail", "⛴️ Offers Received"), ("tab_quote", "⚖️ Offer Comparison"), ("tab_supp", "🏭 Supplier Comparison"),
+    ("tab_permits", "🛂 Permits & Documents"), ("tab1", "📋 Equipment Mix & Quantities"),
+    ("tab2", "🚢 Supply Chain & Incoterms"), ("tab3", "📦 Storage, Demurrage & Drayage"),
+    ("tab4", "⚖️ Regulation & Approvals"), ("tab5", "🗺️ Route Options"), ("tab6", "✅ Regulatory Checklist"),
+    ("tab7", "📊 Budget & Carbon Report"), ("tab8", "🧩 Multi-Shipment Planner"),
+    ("tab_site", "🏗️ Site Readiness & Storage"), ("tab_cash", "💵 Cash Flow"), ("tab_budget", "📒 Budget vs Actual"),
+    ("tab_scen", "🔀 Scenarios"),
+]
+VIEWS = {
+    "Guided (start here)": ["tab0", "tab_sail", "tab_quote", "tab8", "tab_dash"],
+    "Finance": ["tab_dash", "tab0", "tab_quote", "tab_supp", "tab8", "tab_cash", "tab_budget", "tab_scen", "tab7"],
+    "Logistics": ["tab_dash", "tab0", "tab_rfq", "tab_sail", "tab_quote", "tab8", "tab_site", "tab_permits", "tab2",
+                  "tab3", "tab5"],
+    "Country project manager": ["tab_dash", "tab0", "tab_permits", "tab6", "tab4", "tab_site", "tab8", "tab5",
+                                "tab_budget"],
+    "Environment / ESG": ["tab_dash", "tab0", "tab_quote", "tab_supp", "tab8", "tab7", "tab6", "tab4"],
+    "Procurement / Equipment": ["tab_dash", "tab0", "tab_supp", "tab1", "tab_quote", "tab_cash", "tab_scen"],
+    "All tabs": [k for k, _ in _TAB_DEFS],
+}
+_VIEW_NAMES = list(VIEWS.keys())
+app_view = ui_sidebar.selectbox("View:", _VIEW_NAMES, index=_start_choice("view", _VIEW_NAMES, "default_view"),
+                                help="Shows the tabs for your role. All calculations stay connected in every view.")
+_remember("view", app_view.split(" (")[0])
+with st.sidebar.expander("📚 Data sources & last verified"):
+    for _k, _item, _ver, _src in DATA_SOURCES:
+        st.markdown(f"**{_item}**  \n{_ver} — {_src}")
+    st.caption("Rates and rules change. Check them with the authority, carrier or adviser before you commit.")
+_guide_box = st.container() if app_view.startswith("Guided") else None
+_shown = VIEWS[app_view]
+_hidden = [k for k, _ in _TAB_DEFS if k not in _shown]
+_labels = dict(_TAB_DEFS)
+_shown_tabs = st.tabs([_labels[k] for k in _shown])
+for _k, _t in zip(_shown, _shown_tabs):
+    globals()[_k] = _t
+if _hidden:
+    # hidden tabs are still built (their inputs and results feed the visible tabs) inside an invisible container
+    st.markdown("<style>.st-key-tv_hidden_tabs{display:none !important;}</style>", unsafe_allow_html=True)
+    with st.container(key="tv_hidden_tabs"):
+        for _k, _t in zip(_hidden, st.tabs([_labels[k] for k in _hidden])):
+            globals()[_k] = _t

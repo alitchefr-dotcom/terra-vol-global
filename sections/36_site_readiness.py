@@ -81,6 +81,8 @@ with tab_site:
     _yard_cur_opts = ["ILS", "EUR", "USD"]
     with st.expander("C. Interim storage yard", expanded=True):
         st.caption(_yd_note)
+        if not _src:
+            st.caption(verified_note("yard"))
         y0, y1, y2, y3 = st.columns(4)
         with y0:
             yard_cur = ui.selectbox("Yard quote currency:", _yard_cur_opts, index=_yard_cur_opts.index(_ycur))

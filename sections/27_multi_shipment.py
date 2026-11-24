@@ -101,6 +101,8 @@ with tab8:
             st.session_state.pop("msp_lines_editor", None)
             st.success(f"Loaded the allocation plan: {len(_sh_rows)} shipment(s) from the Sailing Options tab.")
 
+    _blank_if_new("msp_shipments")
+    _blank_if_new("msp_lines")
     if "Routing" not in st.session_state.msp_shipments.columns:
         st.session_state.msp_shipments["Routing"] = "Suez Canal / Red Sea" if not req_no_red_sea else "Cape of Good Hope"
         st.session_state.pop("msp_shipments_editor", None)
@@ -379,6 +381,7 @@ with tab8:
         co2_basis_lbl = ui.selectbox("Container vessel allocation:", ["Per TEU (GLEC default)",
                                                                      "Per tonne (10 t per TEU) — heavier boxes count more"])
         co2_basis = "mass" if co2_basis_lbl.startswith("Per tonne") else "teu"
+        st.caption(verified_note("glec"))
         st.caption("Defaults: GLEC v3.1 container vessel (other global) 0.0883 kg/TEU-km; GLEC v3.0 general cargo "
                    "10–20 kdwt VLSFO 0.0192 kg/t-km; GLEC v3.2 articulated truck 34–40 t container 0.101 kg/t-km "
                    "(TTW 0.078 + WTT 0.023). Sea distance estimated along the route (±5–10%); road distance from the "

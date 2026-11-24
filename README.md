@@ -30,6 +30,12 @@ Order matters: a section can use variables defined in earlier sections. Keep the
 - `interim.py` + `sections/36_site_readiness.py` — Site Readiness & Interim Storage: site-ready date, no-go months, site checklist; per shipment compares factory hold, port, interim yard (bonded or not) and site pad.
 - Private yard rates (admin only) can be kept in the Secrets as `[rate_library.<name>]` with currency, haul_bess, haul_other, lift, day_bess, day_other, ins_permille, ins_cap, extra_permit.
 
+### Views, guide and empty projects
+- Sidebar **View** shows the tabs for a role (Guided, Finance, Logistics, Country project manager, ESG, Procurement, All). Hidden tabs are still computed, so results are identical in every view. Per-user `default_view` can be set in the Secrets.
+- **Guided** view shows a 5-step progress guide (`sections/88_guide.py`).
+- New sessions show a demo project; **🆕 Start an empty project** removes the sample rows (loaded project files never show demo rows).
+- `DATA_SOURCES` in `sections/00_setup.py` lists every regulatory / market data set with its last-verified date and source (sidebar 📚).
+
 ## Users & login
 Login is configured in the app **Secrets** (Streamlit Cloud › App settings › Secrets), never in the code:
 
@@ -45,6 +51,7 @@ ai = true                             # may use the AI offer import
 ai_daily_limit = 50                   # AI reads per day
 default_country = "Israel"            # optional: country shown at login
 default_currency = "USD"              # optional: EUR or USD
+default_view = "Finance"              # optional: Guided, Finance, Logistics, Country project manager, Environment / ESG, Procurement / Equipment, All tabs
 # disabled = true                     # blocks the user at the next click
 ```
 - Without any `[auth_users.*]` the app stays open and the AI import is disabled.

@@ -59,6 +59,7 @@ with tab2:
 
     st.markdown(f"#### 3. Fuel Surcharges per TEU — BAF & EFS ({curr_code})")
     auto_baf = lookup_surcharge(BAF_RATES, shipping_line, dest_port)
+    st.caption(verified_note("baf"))
     if auto_baf:
         st.caption(f"📡 Auto-filled from the monthly surcharge table: **{auto_baf['carrier']} — {auto_baf['lane']}** · "
                    f"{auto_baf.get('baf_name') or 'BAF'} effective {auto_baf.get('effective_from') or '-'} · "
@@ -136,6 +137,7 @@ with tab2:
         customs_duty_pct = ui.number_input("Customs Duty Rate (%) - BESS/General:", min_value=0.0, value=(0.0 if is_israel else 2.7), step=0.1)
     with cc2:
         mvs_customs_duty_pct = ui.number_input("Customs Duty Rate (%) - MVS / Transformers:", min_value=0.0, value=0.0, step=0.1)
+        st.caption(verified_note("duty"))
         if is_israel:
             st.info("🇮🇱 Israel: no customs duty on BESS, MVS or transformers (default 0%). "
                     "Solar PV / Inverters are calculated at 0%. Verify the HS classification with your customs broker.")

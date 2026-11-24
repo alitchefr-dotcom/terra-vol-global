@@ -69,6 +69,7 @@ with tab_supp:
              "Advance (%)": 30.0, "Before Shipment (%)": 70.0, "Lead Time (weeks)": 20.0, "EXW Ready": None,
              "Warranty (years)": 15.0, "Notes": "PCS integrated"},
         ])
+    _blank_if_new("sup_df")
     for _c in _SUP_COLS:
         if _c not in st.session_state.sup_df.columns:
             st.session_state.sup_df[_c] = None

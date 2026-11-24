@@ -106,6 +106,7 @@ with tab0:
              "Container": "20ft", "SOC": True, "L (mm)": 6058, "W (mm)": 2438, "H (mm)": 2896,
              "Gross Weight (t)": 17.4, "DG Class": "", "Energy per Unit (MWh)": 0.0},
         ])
+    _blank_if_new("bom_df")
     bom_edit = st.data_editor(
         st.session_state.bom_df, key="bom_editor", num_rows="dynamic", hide_index=True, use_container_width=True,
         column_config={

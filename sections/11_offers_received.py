@@ -68,6 +68,7 @@ with tab_sail:
                "(one container / one piece): **a number = separate charge · 0 = included in the freight · empty = not "
                "stated or excluded** (filled in and flagged in the comparison). Add rows at the bottom of the table.")
 
+    _blank_if_new("sail_df")
     sail_edit = st.data_editor(
         st.session_state.sail_df, key="sail_editor", num_rows="dynamic", hide_index=True, use_container_width=True,
         column_order=["Offered By", "Quote Ref", "Option", "Carrier", "Vessel", "Vessel Type", "POL", "POD", "ETD", "ETA", "Direct",

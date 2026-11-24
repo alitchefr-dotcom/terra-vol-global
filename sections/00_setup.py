@@ -411,3 +411,45 @@ if "usd_eur" not in st.session_state:
 
 def refresh_rate():
     st.session_state.usd_eur = get_live_exchange_rate("USD", "EUR")
+
+
+# ---------------- empty project vs demo data ----------------
+_DEMO_TABLES = {"bom_df": "bom_editor", "sail_df": "sail_editor", "plan_df": "plan_editor",
+                "msp_shipments": "msp_shipments_editor", "msp_lines": "msp_lines_editor", "sup_df": "sup_editor"}
+
+
+def _blank_if_new(key):
+    """In an empty project, keep the table's columns but remove the sample rows (once)."""
+    if st.session_state.get("_empty_project") and key in st.session_state:
+        done = st.session_state.setdefault("_blanked", set())
+        if key not in done:
+            st.session_state[key] = st.session_state[key].iloc[0:0].copy()
+            done.add(key)
+
+
+# ---------------- data sources & last verified (shown in the sidebar and next to the inputs) ----------------
+DATA_SOURCES = [
+    # (key, item, last verified, source)
+    ("vat", "Import VAT standard rates (EU countries, Israel)", VAT_TABLE_VERIFIED,
+     "European Commission VAT rates tables; Israel Tax Authority"),
+    ("duty", "Customs duty defaults (BESS 2.7% EU, 0% Israel; MVS / transformers editable)", "November 2026",
+     "EU TARIC; Israel customs tariff — confirm the HS code for your equipment"),
+    ("baf", "Carrier fuel surcharges (BAF / EFS per TEU)", BAF_RATES.get("last_run") or "—",
+     "Carrier websites, checked monthly by a scheduled task"),
+    ("glec", "Transport emission factors", "November 2026",
+     "GLEC Framework v3.1 (container), v3.0 (general cargo), v3.2 (truck) — ISO 14083, well-to-wheel"),
+    ("il_permits", "Israel: Toxins Permit and Ministry of Transport transport permit per BESS unit", "November 2026",
+     "Ministry of Environmental Protection; Ministry of Transport — market practice"),
+    ("ashdod", "Ashdod Port (government) temporary limit of 30 BESS at a time", "November 2026",
+     "Port practice reported by forwarders — temporary, check before booking"),
+    ("eubr", "EU Battery Regulation: battery passport 18 Feb 2027; due diligence 18 Aug 2027", "November 2026",
+     "Regulation (EU) 2023/1542 and the 2025 'stop-the-clock' amendment"),
+    ("yard", "Interim storage yard rates (Israel)", "November 2026",
+     "Indicative rounded market ranges — replace with the quote received"),
+]
+_DS = {k: (item, ver, src) for k, item, ver, src in DATA_SOURCES}
+
+
+def verified_note(key):
+    item, ver, src = _DS[key]
+    return f"Last verified: {ver} · Source: {src}"
