@@ -26,3 +26,22 @@ Order matters: a section can use variables defined in earlier sections. Keep the
 - `sections/89_dashboard.py` — Project Dashboard (first tab): KPIs, MWh by status, key dates, open alerts.
 - `supplier_compare.py` + `sections/35_supplier_comparison.py` — Supplier Comparison: delivered-to-site cost per kWh for competing BESS suppliers on the same project and route.
 - `ai_import.py` — AI import of offers from PDF / e-mail / image / spreadsheet / text (Claude API, key in the `ANTHROPIC_API_KEY` secret); lines are reviewed before they are added.
+
+## Users & login
+Login is configured in the app **Secrets** (Streamlit Cloud › App settings › Secrets), never in the code:
+
+```toml
+ANTHROPIC_API_KEY = "sk-ant-..."      # optional, for the AI offer import
+
+[auth_users.alitche]                  # username (lower-case)
+password_hash = "pbkdf2_sha256$..."   # from the "Create password hash" tool in the sidebar
+name = "Alitche"
+company = "Terra Vol"
+role = "admin"                        # admin | user (admins see the hash tool)
+ai = true                             # may use the AI offer import
+ai_daily_limit = 50                   # AI reads per day
+# disabled = true                     # blocks the user at the next click
+```
+- Without any `[auth_users.*]` the app stays open and the AI import is disabled.
+- 5 wrong passwords lock the username for 15 minutes; sessions end after 8 idle hours or on browser refresh.
+- Passwords: at least 10 characters, upper- and lower-case letters and a digit; stored only as salted PBKDF2 hashes.

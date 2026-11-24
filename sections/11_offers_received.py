@@ -167,10 +167,14 @@ with tab_sail:
 
     with st.expander("🤖 Import offers with AI — PDF, e-mail (.eml), screenshot, spreadsheet or pasted text"):
         _key = _ai_key()
-        if not _key:
+        _ai_ok, _ai_msg, _ai_left = ai_allowance()
+        if not _ai_ok:
+            st.info(_ai_msg)
+        elif not _key:
             st.info("AI import is not configured. Add ANTHROPIC_API_KEY to the app secrets "
                     "(Streamlit Cloud › App settings › Secrets).")
         else:
+            st.caption(f"AI reads left today: {_ai_left}.")
             st.caption("The files are sent to the AI service (Anthropic Claude API) only to read the offers; they are "
                        "not stored by the app and not used to train AI models. Every line is shown for review before "
                        "it is added — always check prices and dates against the original.")
@@ -194,6 +198,7 @@ with tab_sail:
                         f". Ports in the app: {', '.join(SAIL_POD_OPTIONS)}.")
                 try:
                     with st.spinner("Reading the offers…"):
+                        AUTH_GUARD.ai_add(current_user["username"])
                         _rows, _summary, _usage = _ai_mod.extract_offers(_key, _blocks, SAIL_POD_OPTIONS, _ctx)
                     st.session_state["_ai_preview"] = {"rows": _rows, "summary": _summary, "usage": _usage}
                 except RuntimeError as _e:
