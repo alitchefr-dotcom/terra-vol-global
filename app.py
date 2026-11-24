@@ -4,7 +4,7 @@ import os
 import io
 import json
 import importlib
-from datetime import date
+from datetime import date, timedelta
 import calc as _calc_module
 importlib.reload(_calc_module)  # always load the latest calc.py after an update (no app reboot needed)
 from calc import get_live_exchange_rate, convert_currency, format_currency, calculate_project_costs
@@ -106,6 +106,60 @@ class _UI:
 
 ui = _UI(st)
 ui_sidebar = _UI(st.sidebar)
+
+
+# ---------------------------------------------------------------------------
+# GEO — port coordinates and site distance estimate
+# ---------------------------------------------------------------------------
+import math
+
+PORT_COORDS = {
+    "Constanța, Romania": (44.17, 28.65), "Varna, Bulgaria": (43.19, 27.93), "Burgas, Bulgaria": (42.49, 27.48),
+    "Gdansk, Poland": (54.40, 18.67), "Gdynia, Poland": (54.53, 18.56), "Koper, Slovenia (Rail Gateway)": (45.55, 13.73),
+    "Trieste, Italy": (45.63, 13.77), "Venice, Italy": (45.44, 12.26), "Genoa, Italy": (44.41, 8.90),
+    "Piraeus, Greece": (37.94, 23.62), "Thessaloniki, Greece": (40.63, 22.93),
+    "Hamburg, Germany": (53.54, 9.97), "Bremerhaven, Germany": (53.56, 8.56),
+    "Rotterdam, Netherlands": (51.95, 4.14), "Antwerp, Belgium": (51.28, 4.30),
+    "Helsinki / Kotka, Finland": (60.46, 26.95), "Valencia, Spain": (39.44, -0.32), "Marseille, France": (43.40, 4.90),
+    "Haifa Bay Port (SIPG), Israel": (32.82, 35.03), "Haifa Port (Adani), Israel": (32.82, 35.00),
+    "Israel Shipyards Port (Haifa), Israel": (32.81, 35.04), "Ashdod Port, Israel": (31.82, 34.64),
+    "TIL - Hadarom South Port (Ashdod), Israel": (31.80, 34.62), "Eilat Port, Israel": (29.54, 34.95),
+}
+DEFAULT_SITE_COORDS = {
+    "Romania": "44.4268, 26.1025", "Poland": "52.2297, 21.0122", "Hungary": "47.4979, 19.0402",
+    "Bulgaria": "42.6977, 23.3219", "Germany": "51.3397, 12.3731", "Italy": "41.9028, 12.4964",
+    "Greece": "37.9838, 23.7275", "Finland": "60.1699, 24.9384", "France": "45.7640, 4.8357",
+    "Spain": "40.4168, -3.7038", "Netherlands": "52.0907, 5.1214", "Belgium": "50.8503, 4.3517",
+    "Austria": "48.2082, 16.3738", "Czech Republic": "50.0755, 14.4378", "Slovakia": "48.1486, 17.1077",
+    "Croatia": "45.8150, 15.9819", "Israel": "31.2518, 34.7913",
+}
+ROAD_FACTOR = 1.3  # straight-line distance x 1.3 ~ typical road distance
+
+
+def parse_coords(text):
+    """Accepts '44.43, 26.10' or '44.4268° N, 26.1025° E' (S / W give negative values)."""
+    try:
+        parts = [p.strip() for p in str(text).replace(";", ",").split(",")]
+        if len(parts) != 2:
+            return None
+        vals = []
+        for p in parts:
+            neg = p.upper().endswith(("S", "W"))
+            num = float(_re.sub(r"[^0-9.\-]", "", p))
+            vals.append(-num if neg else num)
+        lat, lon = vals
+        if -90 <= lat <= 90 and -180 <= lon <= 180:
+            return lat, lon
+    except (ValueError, TypeError):
+        pass
+    return None
+
+
+def road_km(a, b):
+    """Estimated road distance in km between two (lat, lon) points."""
+    lat1, lon1, lat2, lon2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
+    return 2 * 6371.0 * math.asin(math.sqrt(h)) * ROAD_FACTOR
 
 st.set_page_config(
     page_title="Terra Vol | Global BESS Project Calculator",
@@ -308,7 +362,8 @@ display_currency = ui_sidebar.selectbox(
 curr_code = "EUR" if "EUR" in display_currency else "USD"
 is_eur_display = ("EUR" in display_currency)
 
-delivery_date = ui_sidebar.date_input("Delivery Target Date:", value=date(2027, 6, 30))
+delivery_date = ui_sidebar.date_input("Required-on-Site Date:", value=date(2027, 6, 30),
+                                      help="Date the equipment must be on site. Shipments arriving later are flagged.")
 
 trend_multiplier = ui_sidebar.slider(
     "Equipment Cost Trend Multiplier:",
@@ -369,7 +424,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📦 Storage, Demurrage & Drayage",
     "⚖️ Regulation & Approvals",
     "🗺️ European Route Options",
-    "📂 Infrastructure Projects",
+    "✅ Regulatory Checklist",
     "📊 Budget & Carbon Report",
     "🧩 Multi-Shipment Planner"
 ])
@@ -396,7 +451,17 @@ with tab1:
     with loc_col2:
         site_postal = ui.text_input("Postal Code / Region:", value="10000")
     with loc_col3:
-        site_coords = ui.text_input("GPS Coordinates:", value="44.4268° N, 26.1025° E")
+        site_coords = ui.text_input("GPS Coordinates (lat, lon):", value=DEFAULT_SITE_COORDS.get(destination_country, "44.4268, 26.1025"))
+    site_latlon = parse_coords(site_coords)
+    if site_latlon is None:
+        st.warning("GPS coordinates not recognised — use the format 44.4268, 26.1025")
+    else:
+        _dists = sorted(((p, road_km(site_latlon, PORT_COORDS[p])) for p in destination_ports if p in PORT_COORDS),
+                        key=lambda x: x[1])
+        if _dists:
+            st.caption("Nearest ports by estimated road distance: " +
+                       " · ".join(f"**{p.split(',')[0]}** ≈ {d:,.0f} km" for p, d in _dists[:3]) +
+                       f" (straight line × {ROAD_FACTOR}; confirm with a route survey).")
 
     st.markdown("---")
     st.markdown(f"#### Equipment EXW Cost ({curr_code})")
@@ -871,6 +936,9 @@ with tab5:
         with ir3:
             il_km_rate = ui.number_input("Heavy-haul rate per km per BESS unit (USD):", min_value=0.0, value=12.0, step=1.0)
 
+        _gps_in_israel = bool(site_latlon and 29.0 <= site_latlon[0] <= 33.5 and 34.0 <= site_latlon[1] <= 36.0)
+        if _gps_in_israel:
+            st.caption(f"📍 Road distances estimated from the site GPS ({site_coords}) entered in the Equipment tab.")
         st.caption("Ocean transit days and road distances are **indicative defaults** — edit them in the table to match "
                    "current carrier schedules (Suez vs. Cape routing) and the exact site location. "
                    "Check that the Eilat port currently has a service for your cargo before relying on it.")
@@ -878,11 +946,12 @@ with tab5:
         il_defaults = pd.DataFrame([
             {"Israeli Port": port,
              "Ocean Transit from China (Days)": days,
-             "Road Distance to Site (km)": ISRAEL_REGIONS[il_region][cluster]}
+             "Road Distance to Site (km)": (round(road_km(site_latlon, PORT_COORDS[port])) if _gps_in_israel
+                                            else ISRAEL_REGIONS[il_region][cluster])}
             for port, (cluster, days) in ISRAEL_PORT_CLUSTER.items()
         ])
         il_edit = st.data_editor(
-            il_defaults, key=f"il_routes_{il_region}", hide_index=True, use_container_width=True,
+            il_defaults, key=f"il_routes_{il_region}_{site_coords}", hide_index=True, use_container_width=True,
             disabled=["Israeli Port"],
             column_config={
                 "Ocean Transit from China (Days)": st.column_config.NumberColumn(min_value=0, step=1),
@@ -922,6 +991,19 @@ with tab5:
                 "Use the Multi-Shipment Planner to cost specific routes for this country.")
     else:
         country_info = EUROPEAN_LOGISTICS_HUB[selected_country]
+
+        def gateway_site_km(gw_name):
+            """Estimated road km from the site GPS to the nearest known port named in the gateway."""
+            if not site_latlon:
+                return None
+            norm = gw_name.lower().replace("ț", "t").replace("ș", "s")
+            kms = [road_km(site_latlon, xy) for port, xy in PORT_COORDS.items()
+                   if port.split(",")[0].split(" /")[0].lower().replace("ț", "t") in norm]
+            return round(min(kms)) if kms else None
+
+        if site_latlon:
+            st.caption(f"📍 'Distance from Your Site' is estimated from the site GPS ({site_coords}) entered in the Equipment tab; "
+                       "'Inland Trucking Distance' is the reference hub distance.")
         routing_results = []
         for gw in country_info["gateways"]:
             for china_port in china_ports:
@@ -931,6 +1013,7 @@ with tab5:
                     "Destination Site": country_info["site_name"],
                     "Ocean Transit (Days)": gw["ocean_days"],
                     "Inland Trucking Distance (km)": gw["inland_dist_km"],
+                    "Distance from Your Site (km, est.)": gateway_site_km(gw["port"]),
                     "Inland Trucking Days": gw["inland_days"],
                     "Total Transit (Days)": gw["ocean_days"] + gw["inland_days"],
                     "Base Trucking Cost (€)": gw["cost"],
@@ -944,18 +1027,91 @@ with tab5:
         else:
             st.info("No routing options available for this selection.")
 with tab6:
-    st.subheader("Infrastructure & Energy Projects Intelligence")
-    st.markdown(f"**Target Market Strategy:** Active infrastructure planning and logistics intelligence for **{destination_country}**.")
-    st.markdown("""
-    * **Heavy-Lift Corridor Management:** Ensuring axle-load compliance and bridge engineering surveys across main European corridors.
-    * **Grid Connection Synchronisation:** Aligning MVS and transformer delivery schedules with high-voltage substation commissioning dates.
-    * **Customs Compliance:** Strict adherence to EU TARIC classification for UN3536 Class 9 Lithium-Ion battery shipments.
-    """)
-    if is_israel:
-        st.markdown("""
-    * **Israel — Toxins Permits:** required by the Ministry of Environmental Protection from the importer / consignee and for the project site.
-    * **Israel — MoT Transport Permits:** one oversize/heavy transport permit per BESS container for the port-to-site haul.
-    """)
+    st.subheader(f"✅ Regulatory & Compliance Checklist — {destination_country}")
+    st.markdown(
+        "What must be in place to ship BESS from China to the site, **who is responsible** and **when**. "
+        "Update the status as the project moves — the checklist is saved in the project file."
+    )
+
+    # (requirement, authority / rule, responsible party, stage, indicative lead time)
+    REQ_COMMON = [
+        ("UN38.3 test summary for each battery type", "UN Manual of Tests & Criteria (transport of lithium batteries)",
+         "Manufacturer", "Before booking", "Existing test report"),
+        ("Safety Data Sheet (SDS / MSDS)", "IMDG Code / carrier DG desk", "Manufacturer", "Before booking", "Existing document"),
+        ("Dangerous-goods declaration — Class 9, UN3536 (batteries installed in cargo transport unit)",
+         "IMDG Code", "Manufacturer / Forwarder", "Booking", "1–3 days"),
+        ("Carrier DG acceptance & port of discharge DG approval", "Shipping line DG desk / destination terminal",
+         "Forwarder", "Before booking", "1–2 weeks"),
+        ("Container / SOC certificates (CSC plate, survey) for shipper-owned boxes", "CSC Convention",
+         "Manufacturer", "Before stuffing", "Existing"),
+        ("Commercial invoice, packing list, bill of lading, certificate of origin, insurance certificate",
+         "Customs / bank / buyer", "Manufacturer / Forwarder", "At shipment", "At sailing"),
+        ("Customs import declaration & HS classification (8507.60 Li-ion; 8504 transformers)",
+         "Destination customs", "Importer / Customs broker", "On arrival", "1–5 days"),
+        ("Oversize / heavy transport permit for port-to-site haul", "National road authority",
+         "Haulier / Forwarder", "Before arrival", "1–4 weeks"),
+        ("Site readiness: access road, crane, foundations, unloading plan", "EPC method statement",
+         "EPC / Developer", "Before delivery", "Project plan"),
+    ]
+    REQ_EU = [
+        ("EORI number of the importer", "EU Customs Code", "Importer", "Before import", "1–5 days"),
+        ("CE marking & EU Declaration of Conformity (LVD, EMC) for BESS / PCS", "EU product legislation",
+         "Manufacturer", "Before placing on market", "Existing"),
+        ("EU Battery Regulation 2023/1542 — producer / EPR registration in the member state", "Regulation (EU) 2023/1542",
+         "Manufacturer / Importer", "Before placing on market", "2–8 weeks"),
+        ("EU Battery Passport for industrial batteries > 2 kWh (applies from 18 Feb 2027)", "Regulation (EU) 2023/1542",
+         "Manufacturer", "Before placing on market", "Plan ahead"),
+        ("ADR dangerous-goods rules for road transport (Class 9)", "ADR", "Haulier", "Inland transport", "Driver / vehicle compliance"),
+    ]
+    REQ_IL = [
+        ("Toxins Permit — importer / consignee", "Ministry of Environmental Protection (Hazardous Substances Law)",
+         "Importer", "Before release from port / external storage", "Weeks–months"),
+        ("Toxins Permit — project site", "Ministry of Environmental Protection (Hazardous Substances Law)",
+         "Developer / Site operator", "Before delivery to site", "Weeks–months"),
+        ("Ministry of Transport transport permit — one per BESS container", "Israel Ministry of Transport",
+         "Haulier / Forwarder", "Before port-to-site haul", "Apply early"),
+        ("Battery / e-waste recycling body arrangement — check applicability", "Israeli e-waste & batteries law",
+         "Importer", "Before placing on market", "2–6 weeks"),
+    ]
+    _reqs = REQ_COMMON + (REQ_IL if is_israel else REQ_EU)
+    _saved_status = st.session_state.get("_reg_status", {})
+
+    def _default_status(req):
+        if req in _saved_status:
+            return _saved_status[req].get("Status", "Not started")
+        if is_israel and req.startswith("Toxins Permit — importer"):
+            return "Done" if has_importer_permit else "Not started"
+        if is_israel and req.startswith("Toxins Permit — project site"):
+            return "Done" if has_site_permit else "Not started"
+        return "Not started"
+
+    reg_df = pd.DataFrame([
+        {"Requirement": r, "Authority / Rule": a, "Responsible": who, "When": when, "Lead Time (indicative)": lt,
+         "Status": _default_status(r), "Notes": _saved_status.get(r, {}).get("Notes", "")}
+        for r, a, who, when, lt in _reqs
+    ])
+    reg_edit = st.data_editor(
+        reg_df, key=f"reg_checklist_{destination_country}", hide_index=True, use_container_width=True,
+        disabled=["Requirement", "Authority / Rule", "Responsible", "When", "Lead Time (indicative)"],
+        column_config={
+            "Status": st.column_config.SelectboxColumn(
+                "Status", options=["Not started", "In progress", "Done", "Not applicable"], required=True),
+            "Notes": st.column_config.TextColumn("Notes"),
+        },
+    )
+    reg_status_now = {row["Requirement"]: {"Status": row["Status"], "Notes": row["Notes"] or ""}
+                      for _, row in reg_edit.iterrows()}
+
+    _open = reg_edit[~reg_edit["Status"].isin(["Done", "Not applicable"])]
+    c_done, c_open = st.columns(2)
+    c_done.metric("Completed", f"{len(reg_edit) - len(_open)} / {len(reg_edit)}")
+    c_open.metric("Open items", len(_open))
+    if len(_open):
+        by_party = _open.groupby("Responsible")["Requirement"].count().sort_values(ascending=False)
+        st.markdown("**Open items by responsible party:** " +
+                    " · ".join(f"{party}: {n}" for party, n in by_party.items()))
+    st.caption("Indicative checklist for planning — confirm the exact requirements with the authorities, "
+               "your customs broker and the carrier for each project.")
 
 with tab7:
     st.subheader("Financial & Environmental Control Report (Carbon & Cost)")
@@ -1320,7 +1476,20 @@ with tab8:
     # --- Per-shipment costs ---
     st.markdown(f"#### 4. Cost per Shipment ({curr_code})")
     rows = []
+    late_shipments = []
+    _port_days_by_name = {sh["name"]: int(pd.to_numeric(sh.get("port_days"), errors="coerce") or 0)
+                          if not pd.isna(pd.to_numeric(sh.get("port_days"), errors="coerce")) else 0
+                          for sh in msp_shipments}
     for r in plan["shipments"]:
+        # Estimated on-site date = ETA + port days + 2 days inland haul & unloading
+        _on_site = (r["eta"] + timedelta(days=_port_days_by_name.get(r["name"], 0) + 2)) if r["eta"] else None
+        if _on_site and delivery_date and _on_site > delivery_date:
+            _status = f"⚠️ Late {(_on_site - delivery_date).days}d"
+            late_shipments.append(f"{r['name']} ({(_on_site - delivery_date).days} days)")
+        elif _on_site and delivery_date:
+            _status = f"✅ {(delivery_date - _on_site).days}d buffer"
+        else:
+            _status = "—"
         rows.append({
             "Shipment": r["name"],
             "Carrier": r["carrier"],
@@ -1329,6 +1498,8 @@ with tab8:
             "ETD": r["etd"].strftime("%d/%m/%Y") if r["etd"] else "",
             "ETA": r["eta"].strftime("%d/%m/%Y") if r["eta"] else "",
             "Transit (Days)": r["transit_days"] if r["transit_days"] is not None else "",
+            "Est. on Site": _on_site.strftime("%d/%m/%Y") if _on_site else "",
+            "vs Required Date": _status,
             "Equipment Value": _fmt(r["goods_value"]),
             "Origin Charges": _fmt(r["origin_charges"]),
             "TEU": f"{r['teu']:g}",
@@ -1346,6 +1517,12 @@ with tab8:
             "Shipment Total (ex VAT)": _fmt(r["total_ex_vat"]),
             "Import VAT": _fmt(r["vat"]),
         })
+    if late_shipments:
+        st.error(f"⚠️ Arriving after the required-on-site date ({delivery_date.strftime('%d/%m/%Y')}): "
+                 + ", ".join(late_shipments) + ". Move the sailing earlier or change the required date in the sidebar.")
+    elif rows:
+        st.success(f"✅ All dated shipments are estimated on site before {delivery_date.strftime('%d/%m/%Y')}.")
+    st.caption("Est. on Site = ETA + port days + 2 days for inland haul and unloading.")
     if rows:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
@@ -1415,6 +1592,7 @@ _project_file = {
     "values": _SAVED,
     "shipments": _df_records(edited_shipments),
     "shipment_lines": _df_records(edited_lines),
+    "regulatory_checklist": reg_status_now,
 }
 _slug = _re.sub(r"[^A-Za-z0-9]+", "_", project_name).strip("_") or "project"
 st.sidebar.download_button(
@@ -1439,6 +1617,10 @@ if _upload is not None:
                 st.session_state["msp_shipments"] = _records_df(_data["shipments"], date_cols=("ETD", "ETA"))
                 st.session_state["msp_lines"] = _records_df(_data.get("shipment_lines", []))
                 for _k in ("msp_shipments_editor", "msp_lines_editor"):
+                    st.session_state.pop(_k, None)
+            if _data.get("regulatory_checklist"):
+                st.session_state["_reg_status"] = _data["regulatory_checklist"]
+                for _k in [k for k in st.session_state.keys() if str(k).startswith("reg_checklist_")]:
                     st.session_state.pop(_k, None)
             st.session_state["_loaded_upload_id"] = _upload_id
             st.session_state["_loaded_project_name"] = _data.get("project_name", "")
