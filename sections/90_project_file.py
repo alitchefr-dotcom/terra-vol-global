@@ -45,6 +45,11 @@ def _apply_project_data(_data):
                                        "Paid", "Final", "Notes"])
         st.session_state["actuals_df"] = _a
         st.session_state.pop("actuals_editor", None)
+    if _data.get("site_checklist") is not None:
+        _sc = _records_df(_data["site_checklist"], date_cols=("Due",))
+        if len(_sc):
+            st.session_state["site_check_df"] = _sc
+            st.session_state.pop("site_check_editor", None)
     if _data.get("suppliers") is not None:
         _s = _records_df(_data["suppliers"], date_cols=("EXW Ready",))
         if len(_s):
@@ -74,4 +79,5 @@ _project_file = {
     "budget_baseline": st.session_state.get("_budget_baseline"),
     "actuals": _df_records(act_edit),
     "suppliers": _df_records(sup_edit),
+    "site_checklist": _df_records(site_check),
 }

@@ -26,6 +26,8 @@ def _current_kpis():
         "Last on site": max(on_site).isoformat() if on_site else None,
         "Days vs required date": ((delivery_date - max(on_site)).days if on_site else None),
         "Cost of delay (USD)": round(G.get("project_delay_cost_usd", 0.0) or 0.0),
+        "Site waiting cost (USD)": round(G.get("interim_total_usd", 0.0) or 0.0),
+        "Delay caused by site (USD)": round(G.get("site_delay_cost_usd", 0.0) or 0.0),
         "Logistics + delay (USD)": round(plan["logistics_total_ex_vat"] + plan["project_level_costs"]
                                          + (G.get("project_delay_cost_usd", 0.0) or 0.0)),
         "Payment terms": G.get("pay_preset", ""),

@@ -27,6 +27,9 @@ Order matters: a section can use variables defined in earlier sections. Keep the
 - `supplier_compare.py` + `sections/35_supplier_comparison.py` — Supplier Comparison: delivered-to-site cost per kWh for competing BESS suppliers on the same project and route.
 - `ai_import.py` — AI import of offers from PDF / e-mail / image / spreadsheet / text (Claude API, key in the `ANTHROPIC_API_KEY` secret); lines are reviewed before they are added.
 
+- `interim.py` + `sections/36_site_readiness.py` — Site Readiness & Interim Storage: site-ready date, no-go months, site checklist; per shipment compares factory hold, port, interim yard (bonded or not) and site pad.
+- Private yard rates (admin only) can be kept in the Secrets as `[rate_library.<name>]` with currency, haul_bess, haul_other, lift, day_bess, day_other, ins_permille, ins_cap, extra_permit.
+
 ## Users & login
 Login is configured in the app **Secrets** (Streamlit Cloud › App settings › Secrets), never in the code:
 

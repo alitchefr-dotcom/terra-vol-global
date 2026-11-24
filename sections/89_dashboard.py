@@ -108,6 +108,14 @@ with tab_dash:
         alerts.append(("🟠", "Allocation plan", w_))
     for l_ in (_G.get("late_shipments") or []):
         alerts.append(("🔴", "Schedule", f"Arrives after the required-on-site date: {l_}"))
+    if _G.get("interim_total_usd"):
+        alerts.append(("🟠", "Site readiness", f"Units wait for the site: waiting cost "
+                                                f"{format_currency(interim_total_usd * _cm, curr_code)}."))
+    if _G.get("site_delay_cost_usd"):
+        alerts.append(("🔴", "Site readiness", f"Site readiness delays the project: cost of delay "
+                                               f"{format_currency(site_delay_cost_usd * _cm, curr_code)}."))
+    if _G.get("site_open_items"):
+        alerts.append(("🟠", "Site readiness", f"{len(site_open_items)} site condition(s) open (access road, crane, permits…)."))
     if _G.get("project_delay_cost_usd"):
         alerts.append(("🔴", "Schedule", f"Cost of delay {format_currency(project_delay_cost_usd * _cm, curr_code)} "
                                          f"({project_days_late} days late)."))
