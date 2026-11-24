@@ -432,8 +432,9 @@ with col_logo:
 
 st.markdown("---")
 
-tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab0, tab_sail, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📝 Project Brief & BOM",
+    "⛴️ Sailing Options",
     "📋 Equipment Mix & Quantities",
     "🚢 Supply Chain & Incoterms",
     "📦 Storage, Demurrage & Drayage",
@@ -579,6 +580,197 @@ with tab0:
                                             for i in range(min_vessels)]) + ").")
     else:
         min_vessels = 1
+
+with tab_sail:
+    st.subheader("⛴️ Sailing Options — All Available Vessels, Carriers & Dates")
+    st.markdown("Enter every sailing option you have (different carriers, container lines, MPP / charter vessels, "
+                "different weeks). Each option is checked automatically against the Project Brief.")
+
+    VESSEL_TYPES = ["Container vessel", "MPP vessel", "Charter (dedicated)"]
+    ROUTINGS = ["Cape of Good Hope", "Suez Canal / Red Sea", "Other"]
+    SAIL_POD_OPTIONS = destination_ports + [p for p in ISRAEL_PORTS + all_european_ports if p not in destination_ports]
+
+    if "sail_df" not in st.session_state:
+        _haifa = "Haifa Port (Adani), Israel" if is_israel else destination_ports[0]
+        _ashdod = "Ashdod Port, Israel" if is_israel else destination_ports[min(1, len(destination_ports) - 1)]
+        _bay = "Haifa Bay Port (SIPG), Israel" if is_israel else destination_ports[0]
+        _yard = "Israel Shipyards Port (Haifa), Israel" if is_israel else destination_ports[0]
+        _base = {"POL": "Shanghai", "Currency": "USD", "DG Surcharge / Unit": 450.0, "Heavy-Lift / Unit": 1200.0,
+                 "DG Yard Origin / Unit": 300.0, "Lashing / Unit": 250.0, "BAF / TEU (if not incl.)": 0.0,
+                 "Origin Local / Unit": 350.0, "Dest. Local / Unit": 400.0, "Free Days": 5,
+                 "Valid Until": date(2027, 1, 15), "Transshipment Port": ""}
+        st.session_state.sail_df = pd.DataFrame([
+            dict(_base, **{"Option": "A1", "Carrier": "Sample Line A", "Vessel": "Sample Vessel 1", "Vessel Type": "Container vessel",
+                           "POD": _haifa, "ETD": date(2026, 12, 26), "ETA": date(2027, 2, 8), "Direct": True,
+                           "Routing": "Cape of Good Hope", "Capacity (units)": 25, "Max Gross / Box (t)": 45.0,
+                           "Freight / 20ft": 8500.0, "Freight / 40ft": 12000.0}),
+            dict(_base, **{"Option": "B1", "Carrier": "Sample Line B", "Vessel": "Sample Vessel 2", "Vessel Type": "Container vessel",
+                           "POD": _ashdod, "ETD": date(2026, 12, 29), "ETA": date(2027, 2, 14), "Direct": False,
+                           "Transshipment Port": "Piraeus", "Routing": "Cape of Good Hope", "Capacity (units)": 30,
+                           "Max Gross / Box (t)": 45.0, "Freight / 20ft": 7200.0, "Freight / 40ft": 10500.0}),
+            dict(_base, **{"Option": "C1", "Carrier": "Sample Line C", "Vessel": "Sample Vessel 3", "Vessel Type": "Container vessel",
+                           "POD": _bay, "ETD": date(2026, 12, 27), "ETA": date(2027, 1, 22), "Direct": True,
+                           "Routing": "Suez Canal / Red Sea", "Capacity (units)": 30, "Max Gross / Box (t)": 45.0,
+                           "Freight / 20ft": 6800.0, "Freight / 40ft": 9800.0}),
+            dict(_base, **{"Option": "D1", "Carrier": "Sample MPP Operator", "Vessel": "Sample MPP 1", "Vessel Type": "MPP vessel",
+                           "POD": _haifa, "ETD": date(2026, 12, 30), "ETA": date(2027, 2, 12), "Direct": True,
+                           "Routing": "Cape of Good Hope", "Capacity (units)": 30, "Max Gross / Box (t)": 60.0,
+                           "Freight / 20ft": 19000.0, "Freight / 40ft": 22000.0, "DG Surcharge / Unit": 0.0,
+                           "Heavy-Lift / Unit": 0.0, "Lashing / Unit": 600.0}),
+            dict(_base, **{"Option": "A2", "Carrier": "Sample Line A", "Vessel": "Sample Vessel 4", "Vessel Type": "Container vessel",
+                           "POD": _haifa, "ETD": date(2027, 1, 2), "ETA": date(2027, 2, 15), "Direct": True,
+                           "Routing": "Cape of Good Hope", "Capacity (units)": 25, "Max Gross / Box (t)": 45.0,
+                           "Freight / 20ft": 8300.0, "Freight / 40ft": 11800.0}),
+            dict(_base, **{"Option": "E1", "Carrier": "Sample Line E", "Vessel": "Sample Vessel 5", "Vessel Type": "Container vessel",
+                           "POD": _yard, "ETD": date(2026, 12, 28), "ETA": date(2027, 2, 10), "Direct": True,
+                           "Routing": "Cape of Good Hope", "Capacity (units)": 25, "Max Gross / Box (t)": 45.0,
+                           "Freight / 20ft": 8000.0, "Freight / 40ft": 11500.0}),
+            dict(_base, **{"Option": "B2", "Carrier": "Sample Line B", "Vessel": "Sample Vessel 6", "Vessel Type": "Container vessel",
+                           "POD": _ashdod, "ETD": date(2026, 12, 30), "ETA": date(2027, 2, 13), "Direct": True,
+                           "Routing": "Cape of Good Hope", "Capacity (units)": 24, "Max Gross / Box (t)": 45.0,
+                           "Freight / 20ft": 8800.0, "Freight / 40ft": 12300.0}),
+        ])
+    st.caption("Sample options are pre-filled for illustration — replace them with the real offers. "
+               "Costs are per unit (one container / one piece). Add rows at the bottom of the table.")
+
+    sail_edit = st.data_editor(
+        st.session_state.sail_df, key="sail_editor", num_rows="dynamic", hide_index=True, use_container_width=True,
+        column_order=["Option", "Carrier", "Vessel", "Vessel Type", "POL", "POD", "ETD", "ETA", "Direct",
+                      "Transshipment Port", "Routing", "Capacity (units)", "Max Gross / Box (t)", "Currency",
+                      "Freight / 20ft", "Freight / 40ft", "BAF / TEU (if not incl.)", "DG Surcharge / Unit",
+                      "Heavy-Lift / Unit", "DG Yard Origin / Unit", "Lashing / Unit", "Origin Local / Unit",
+                      "Dest. Local / Unit", "Free Days", "Valid Until"],
+        column_config={
+            "Vessel Type": st.column_config.SelectboxColumn("Vessel Type", options=VESSEL_TYPES, required=True),
+            "POD": st.column_config.SelectboxColumn("POD", options=SAIL_POD_OPTIONS, required=True),
+            "ETD": st.column_config.DateColumn("ETD", format="DD/MM/YYYY"),
+            "ETA": st.column_config.DateColumn("ETA", format="DD/MM/YYYY"),
+            "Valid Until": st.column_config.DateColumn("Valid Until", format="DD/MM/YYYY"),
+            "Direct": st.column_config.CheckboxColumn("Direct", help="Direct sailing, no transshipment"),
+            "Routing": st.column_config.SelectboxColumn("Routing", options=ROUTINGS, required=True),
+            "Currency": st.column_config.SelectboxColumn("Currency", options=["USD", "EUR"], required=True),
+            "Capacity (units)": st.column_config.NumberColumn("Capacity (units)", min_value=0, step=1,
+                                                              help="Units / slots offered on this sailing"),
+            "Max Gross / Box (t)": st.column_config.NumberColumn("Max Gross / Box (t)", min_value=0.0, step=0.5,
+                                                                 help="Heaviest container the carrier accepts on this sailing"),
+            "Free Days": st.column_config.NumberColumn("Free Days", min_value=0, step=1),
+        },
+    )
+
+    # --- heaviest / DG cargo from the BOM, used by the checks
+    _bom_valid = [r for r in bom_rows]
+    _max_box_t = max([r["Weight / Unit (t)"] for r in _bom_valid if r["Container"] != "MPP / Breakbulk"] or [0.0])
+
+    def _num(v, default=0.0):
+        v = pd.to_numeric(v, errors="coerce")
+        return default if pd.isna(v) else float(v)
+
+    def _d(v):
+        if v is None or (not isinstance(v, (date,)) and pd.isna(v)):
+            return None
+        return v.date() if hasattr(v, "date") and callable(getattr(v, "date")) else v
+
+    def sailing_unit_cost_usd(row, bom_row):
+        """All-in ocean + local cost for one unit of a BOM line on this sailing (USD)."""
+        fx = (1.0 / usd_to_eur) if str(row.get("Currency")).upper().startswith("EUR") else 1.0
+        size = bom_row["Container"]
+        freight = _num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))
+        c = freight + _num(row.get("Lashing / Unit")) + _num(row.get("Origin Local / Unit")) + _num(row.get("Dest. Local / Unit"))
+        c += _num(row.get("BAF / TEU (if not incl.)")) * teu_factor(size, 1.0)
+        if "Dangerous goods" in bom_row["Checks"]:
+            c += _num(row.get("DG Surcharge / Unit")) + _num(row.get("DG Yard Origin / Unit"))
+        if "Heavy box" in bom_row["Checks"]:
+            c += _num(row.get("Heavy-Lift / Unit"))
+        return c * fx
+
+    sail_results = []
+    for _, row in sail_edit.iterrows():
+        opt = str(row.get("Option") or "").strip()
+        if not opt or opt.lower() == "nan":
+            continue
+        etd, eta, valid = _d(row.get("ETD")), _d(row.get("ETA")), _d(row.get("Valid Until"))
+        pod = row.get("POD") or ""
+        vtype = row.get("Vessel Type") or "Container vessel"
+        fails, warns = [], []
+        if req_direct_only and not bool(row.get("Direct")):
+            ts = str(row.get("Transshipment Port") or "").strip()
+            fails.append("Transshipment" + (f" via {ts}" if ts and ts.lower() != "nan" else ""))
+        if req_no_red_sea and row.get("Routing") == "Suez Canal / Red Sea":
+            fails.append("Routes via Red Sea / Suez")
+        if etd is None:
+            fails.append("No ETD")
+        else:
+            if etd < brief_fob_date:
+                fails.append(f"Sails before cargo is at port ({brief_fob_date.strftime('%d/%m')})")
+            if etd > brief_must_sail_by:
+                fails.append(f"Sails after the latest ETD ({brief_must_sail_by.strftime('%d/%m')})")
+        max_gross = _num(row.get("Max Gross / Box (t)"))
+        if _max_box_t and max_gross and max_gross < _max_box_t:
+            fails.append(f"Max gross {max_gross:g} t < heaviest box {_max_box_t:g} t")
+        elif _max_box_t and not max_gross:
+            warns.append("Max gross per box not confirmed")
+        if pod in ISRAEL_PORT_INFO:
+            needs = "container" if vtype == "Container vessel" else "charter"
+            if not ISRAEL_PORT_INFO[pod][needs]:
+                fails.append(f"{pod.split(',')[0]} does not receive {'container' if needs == 'container' else 'charter / MPP'} vessels")
+        if brief_pods and pod not in brief_pods:
+            warns.append("POD not in the client's requested ports")
+        on_site = (eta + timedelta(days=4)) if eta else None
+        if on_site and on_site > delivery_date:
+            warns.append(f"On site ≈ {on_site.strftime('%d/%m/%Y')}, after required date")
+        if valid and valid < date.today():
+            warns.append("Quote expired")
+        elif valid and etd and valid < etd:
+            warns.append("Quote validity ends before ETD — reconfirm")
+        if _num(row.get("Capacity (units)")) <= 0:
+            warns.append("Capacity not stated")
+
+        status = "❌ Not eligible" if fails else ("⚠️ Eligible — check" if warns else "✅ Eligible")
+        costs = {}
+        for b in _bom_valid:
+            if b["Type"] not in costs:
+                costs[b["Type"]] = sailing_unit_cost_usd(row, b)
+        sail_results.append({
+            "Option": opt, "Carrier": row.get("Carrier"), "Vessel": row.get("Vessel"), "Type": vtype,
+            "POD": pod, "ETD": etd, "ETA": eta,
+            "Transit (d)": (eta - etd).days if (eta and etd) else None,
+            "Capacity": int(_num(row.get("Capacity (units)"))),
+            "Status": status, "Issues": " · ".join(fails + warns),
+            "cost_usd": costs, "free_days": int(_num(row.get("Free Days"))), "eligible": not fails,
+        })
+
+    _mult = usd_to_eur if is_eur_display else 1.0
+    _sym = "€" if is_eur_display else "$"
+    st.markdown("#### Compliance Check vs. Project Brief")
+    if sail_results:
+        _types = list(dict.fromkeys(b["Type"] for b in _bom_valid))
+        st.dataframe(pd.DataFrame([
+            dict({k: r[k] for k in ["Status", "Option", "Carrier", "Vessel", "Type", "POD"]},
+                 **{"ETD": r["ETD"].strftime("%d/%m/%Y") if r["ETD"] else "",
+                    "ETA": r["ETA"].strftime("%d/%m/%Y") if r["ETA"] else "",
+                    "Transit (d)": r["Transit (d)"], "Capacity": r["Capacity"]},
+                 **{f"All-in / {t} unit": f"{_sym} {r['cost_usd'].get(t, 0) * _mult:,.0f}" for t in _types},
+                 **{"Issues": r["Issues"]})
+            for r in sail_results]), use_container_width=True, hide_index=True)
+
+        eligible = [r for r in sail_results if r["eligible"]]
+        _need_bess = bom_totals.get("BESS", 0)
+        _cap = sum(r["Capacity"] for r in eligible)
+        e1, e2, e3 = st.columns(3)
+        e1.metric("Eligible sailings", f"{len(eligible)} / {len(sail_results)}")
+        e2.metric("Eligible capacity", f"{_cap} units", help="Sum of the capacity offered on eligible sailings")
+        e3.metric("Units to ship", f"{sum(bom_totals.values())}")
+        if len(eligible) < min_vessels:
+            st.error(f"Only {len(eligible)} eligible sailing(s) — at least {min_vessels} vessels are needed "
+                     f"(insurer limit {max_bess_per_vessel} BESS per vessel). Look for more options.")
+        elif _cap < sum(bom_totals.values()):
+            st.warning("Eligible capacity is lower than the units to ship — add sailings or confirm more capacity.")
+        else:
+            st.success("Enough eligible sailings and capacity to ship the whole BOM. Allocation comes next.")
+        st.caption("All-in / unit = freight + lashing + origin & destination local charges + BAF (if not included) "
+                   "+ DG surcharge & DG yard (DG cargo) + heavy-lift (boxes above 30.48 t). On site ≈ ETA + 4 days.")
+    else:
+        st.info("Add sailing options to check them against the Project Brief.")
 
 with tab1:
     st.subheader("Equipment Mix & Quantities Configuration")
@@ -1767,6 +1959,7 @@ _project_file = {
     "shipment_lines": _df_records(edited_lines),
     "regulatory_checklist": reg_status_now,
     "bom": _df_records(bom_edit),
+    "sailings": _df_records(sail_edit),
 }
 _slug = _re.sub(r"[^A-Za-z0-9]+", "_", project_name).strip("_") or "project"
 st.sidebar.download_button(
@@ -1792,6 +1985,9 @@ if _upload is not None:
                 st.session_state["msp_lines"] = _records_df(_data.get("shipment_lines", []))
                 for _k in ("msp_shipments_editor", "msp_lines_editor"):
                     st.session_state.pop(_k, None)
+            if _data.get("sailings") is not None:
+                st.session_state["sail_df"] = _records_df(_data["sailings"], date_cols=("ETD", "ETA", "Valid Until"))
+                st.session_state.pop("sail_editor", None)
             if _data.get("bom") is not None:
                 st.session_state["bom_df"] = _records_df(_data["bom"])
                 st.session_state.pop("bom_editor", None)
