@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 35_supplier_comparison: Tab: Supplier Comparison (delivered-to-site cost per kWh).
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 

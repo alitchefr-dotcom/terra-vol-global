@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 """Route-based transport emissions (GLEC Framework / ISO 14083, well-to-wheel).
 
 Sea distance is estimated along waypoints (Suez / Red Sea or Cape of Good Hope), road distance from coordinates.

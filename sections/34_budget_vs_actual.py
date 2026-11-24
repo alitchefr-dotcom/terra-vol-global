@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 34_budget_vs_actual: Tab: Budget vs Actual.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 # ---------------------------------------------------------------------------

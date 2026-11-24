@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 89_dashboard: project control dashboard (shown as the first tab).
 # Runs after all other tabs so it can summarise their results. Runs in the shared namespace of app.py.
 

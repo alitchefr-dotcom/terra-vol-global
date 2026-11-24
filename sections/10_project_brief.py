@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 10_project_brief: Tab: Project Brief & BOM.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 with tab0:

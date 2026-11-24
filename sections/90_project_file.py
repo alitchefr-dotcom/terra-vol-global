@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 90_project_file: Project restore function and the project file content.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 def _apply_project_data(_data):

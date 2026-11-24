@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 """RFQ response template (Excel) — forwarders fill one row per vessel / sailing; the file is imported back."""
 import io
 

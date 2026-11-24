@@ -1,6 +1,8 @@
 # Terra-Vol-Global
 End-to-end supply chain &amp; financial control software for BESS and solar energy developers, EPCs, and IPPs
 
+**Proprietary software — © Terra Vol. All rights reserved.** No licence is granted to use, copy, modify or distribute this code. See [LICENSE](LICENSE).
+
 
 ## Code structure
 

@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 00_setup: Imports, constants, helpers (save/load wrapper, geo, surcharge table), page config & styling.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 import streamlit as st

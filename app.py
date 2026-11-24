@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 """Terra Vol Global — Streamlit entry point.
 
 The app is split into section files in ./sections. They run in order (by file name) in one shared namespace,

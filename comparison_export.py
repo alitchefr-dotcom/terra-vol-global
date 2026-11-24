@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 """Offer comparison report (Excel) for Terra Vol Global."""
 import io
 from datetime import date

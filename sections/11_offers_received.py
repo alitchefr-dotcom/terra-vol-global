@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 11_offers_received: Tab: Offers Received — offers, compliance checks, port rules, allocation plan.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 with tab_sail:

@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 """Delivered-to-site cost per kWh for competing BESS equipment suppliers.
 
 Every supplier is costed on the same project (same required MWh, same route, same rates), so the comparison

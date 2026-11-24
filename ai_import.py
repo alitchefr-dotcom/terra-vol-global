@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 """AI import of forwarder / carrier offers from PDF, e-mail, image, spreadsheet or pasted text (Claude API).
 
 The model is forced to answer through one tool (`record_offers`) whose schema mirrors the Offers Received table,

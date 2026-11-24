@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 32_request_for_quote: Tab: Request for Quote.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 # ---------------------------------------------------------------------------

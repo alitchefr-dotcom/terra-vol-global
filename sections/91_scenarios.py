@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 91_scenarios: Tab: Scenarios.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 # ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 import requests
 
 DECOM_SCENARIOS_USD_PER_KWH = {"low": 59.0, "base": 75.0, "high": 90.0}

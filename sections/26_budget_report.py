@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 26_budget_report: Tab: Budget & Carbon Report (main cost engine call).
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 with tab7:

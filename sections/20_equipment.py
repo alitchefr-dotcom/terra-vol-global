@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 20_equipment: Tab: Equipment Mix & Quantities (+ EXW conversion, capacity, unit-cost KPIs).
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 with tab1:

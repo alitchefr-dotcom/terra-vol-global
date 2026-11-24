@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 99_save_load_footer: Sidebar save / load buttons and page footer.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 _slug = _re.sub(r"[^A-Za-z0-9]+", "_", project_name).strip("_") or "project"
@@ -26,4 +27,5 @@ if st.session_state.get("_loaded_project_name"):
     st.sidebar.success(f"Loaded: {st.session_state['_loaded_project_name']}")
 
 st.markdown("---")
-st.caption(f"© {date.today().year} Terra Vol. Advanced Renewable Energy & Infrastructure Venture.")
+st.caption(f"© {date.today().year} Terra Vol. All rights reserved. Proprietary software — copying, reproduction or reverse-engineering of the software, its calculation methods or templates is prohibited. "
+           "Results are planning estimates; verify against carrier, customs and authority documents.")

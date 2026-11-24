@@ -1,3 +1,4 @@
+# © Terra Vol. All rights reserved. Proprietary and confidential — see LICENSE.
 # Terra Vol Global — section 05_sidebar_and_tabs: Sidebar settings, page header and the tab layout.
 # Runs in the shared namespace of app.py, in file-name order (see app.py).
 # --- SIDEBAR SETTINGS ---
