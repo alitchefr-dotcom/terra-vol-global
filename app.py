@@ -7,8 +7,9 @@ import importlib
 from datetime import date, timedelta
 import calc as _calc_module
 importlib.reload(_calc_module)  # always load the latest calc.py after an update (no app reboot needed)
-import quote_export as _quote_mod
-importlib.reload(_quote_mod)
+import comparison_export as _cmp_mod
+importlib.reload(_cmp_mod)
+GOOD_FILL, BAD_FILL = _cmp_mod.GOOD, _cmp_mod.BAD
 from calc import get_live_exchange_rate, convert_currency, format_currency, calculate_project_costs
 from calc import calculate_shipment_plan, EQUIPMENT_TYPES, SERVICE_TYPES, CONTAINER_SIZES, teu_factor
 
@@ -462,8 +463,8 @@ st.markdown("---")
 
 tab0, tab_sail, tab_quote, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📝 Project Brief & BOM",
-    "⛴️ Sailing Options",
-    "📄 Client Quote",
+    "⛴️ Offers Received",
+    "⚖️ Offer Comparison",
     "📋 Equipment Mix & Quantities",
     "🚢 Supply Chain & Incoterms",
     "📦 Storage, Demurrage & Drayage",
@@ -611,9 +612,9 @@ with tab0:
         min_vessels = 1
 
 with tab_sail:
-    st.subheader("⛴️ Sailing Options — All Available Vessels, Carriers & Dates")
-    st.markdown("Enter every sailing option you have (different carriers, container lines, MPP / charter vessels, "
-                "different weeks). Each option is checked automatically against the Project Brief.")
+    st.subheader("⛴️ Offers Received — Sailings Offered by Forwarders & Carriers")
+    st.markdown("Enter every offer you received (one row per vessel / sailing; several forwarders, carriers, MPP / charter "
+                "vessels and weeks). Each offer is checked automatically against the Project Brief.")
 
     VESSEL_TYPES = ["Container vessel", "MPP vessel", "Charter (dedicated)"]
     ROUTINGS = ["Cape of Good Hope", "Suez Canal / Red Sea", "Other"]
@@ -624,7 +625,7 @@ with tab_sail:
         _ashdod = "Ashdod Port, Israel" if is_israel else destination_ports[min(1, len(destination_ports) - 1)]
         _bay = "Haifa Bay Port (SIPG), Israel" if is_israel else destination_ports[0]
         _yard = "Israel Shipyards Port (Haifa), Israel" if is_israel else destination_ports[0]
-        _base = {"POL": "Shanghai", "Currency": "USD", "DG Surcharge / Unit": 450.0, "Heavy-Lift / Unit": 1200.0,
+        _base = {"Offered By": "Forwarder 1", "Quote Ref": "", "POL": "Shanghai", "Currency": "USD", "DG Surcharge / Unit": 450.0, "Heavy-Lift / Unit": 1200.0,
                  "DG Yard Origin / Unit": 300.0, "Lashing / Unit": 250.0, "BAF / TEU (if not incl.)": 0.0,
                  "Origin Local / Unit": 350.0, "Dest. Local / Unit": 400.0, "Free Days": 5,
                  "Valid Until": date(2027, 1, 15), "Transshipment Port": ""}
@@ -633,15 +634,15 @@ with tab_sail:
                            "POD": _haifa, "ETD": date(2026, 12, 26), "ETA": date(2027, 2, 8), "Direct": True,
                            "Routing": "Cape of Good Hope", "Capacity (units)": 25, "Max Gross / Box (t)": 45.0,
                            "Freight / 20ft": 8500.0, "Freight / 40ft": 12000.0}),
-            dict(_base, **{"Option": "B1", "Carrier": "Sample Line B", "Vessel": "Sample Vessel 2", "Vessel Type": "Container vessel",
+            dict(_base, **{"Offered By": "Forwarder 2", "Option": "B1", "Carrier": "Sample Line B", "Vessel": "Sample Vessel 2", "Vessel Type": "Container vessel",
                            "POD": _ashdod, "ETD": date(2026, 12, 29), "ETA": date(2027, 2, 14), "Direct": False,
                            "Transshipment Port": "Piraeus", "Routing": "Cape of Good Hope", "Capacity (units)": 30,
                            "Max Gross / Box (t)": 45.0, "Freight / 20ft": 7200.0, "Freight / 40ft": 10500.0}),
-            dict(_base, **{"Option": "C1", "Carrier": "Sample Line C", "Vessel": "Sample Vessel 3", "Vessel Type": "Container vessel",
+            dict(_base, **{"Offered By": "Forwarder 3", "Option": "C1", "Carrier": "Sample Line C", "Vessel": "Sample Vessel 3", "Vessel Type": "Container vessel",
                            "POD": _bay, "ETD": date(2026, 12, 27), "ETA": date(2027, 1, 22), "Direct": True,
                            "Routing": "Suez Canal / Red Sea", "Capacity (units)": 30, "Max Gross / Box (t)": 45.0,
                            "Freight / 20ft": 6800.0, "Freight / 40ft": 9800.0}),
-            dict(_base, **{"Option": "D1", "Carrier": "Sample MPP Operator", "Vessel": "Sample MPP 1", "Vessel Type": "MPP vessel",
+            dict(_base, **{"Offered By": "Forwarder 3", "Option": "D1", "Carrier": "Sample MPP Operator", "Vessel": "Sample MPP 1", "Vessel Type": "MPP vessel",
                            "POD": _haifa, "ETD": date(2026, 12, 30), "ETA": date(2027, 2, 12), "Direct": True,
                            "Routing": "Cape of Good Hope", "Capacity (units)": 30, "Max Gross / Box (t)": 60.0,
                            "Freight / 20ft": 19000.0, "Freight / 40ft": 22000.0, "DG Surcharge / Unit": 0.0,
@@ -650,21 +651,24 @@ with tab_sail:
                            "POD": _haifa, "ETD": date(2027, 1, 2), "ETA": date(2027, 2, 15), "Direct": True,
                            "Routing": "Cape of Good Hope", "Capacity (units)": 25, "Max Gross / Box (t)": 45.0,
                            "Freight / 20ft": 8300.0, "Freight / 40ft": 11800.0}),
-            dict(_base, **{"Option": "E1", "Carrier": "Sample Line E", "Vessel": "Sample Vessel 5", "Vessel Type": "Container vessel",
+            dict(_base, **{"Offered By": "Forwarder 2", "Option": "E1", "Carrier": "Sample Line E", "Vessel": "Sample Vessel 5", "Vessel Type": "Container vessel",
                            "POD": _yard, "ETD": date(2026, 12, 28), "ETA": date(2027, 2, 10), "Direct": True,
                            "Routing": "Cape of Good Hope", "Capacity (units)": 25, "Max Gross / Box (t)": 45.0,
                            "Freight / 20ft": 8000.0, "Freight / 40ft": 11500.0}),
-            dict(_base, **{"Option": "B2", "Carrier": "Sample Line B", "Vessel": "Sample Vessel 6", "Vessel Type": "Container vessel",
+            dict(_base, **{"Offered By": "Forwarder 2", "Option": "B2", "Carrier": "Sample Line B", "Vessel": "Sample Vessel 6",
+                           "Vessel Type": "Container vessel",
                            "POD": _ashdod, "ETD": date(2026, 12, 30), "ETA": date(2027, 2, 13), "Direct": True,
                            "Routing": "Cape of Good Hope", "Capacity (units)": 24, "Max Gross / Box (t)": 45.0,
-                           "Freight / 20ft": 8800.0, "Freight / 40ft": 12300.0}),
+                           "Freight / 20ft": 8300.0, "Freight / 40ft": 11800.0, "DG Yard Origin / Unit": None,
+                           "Heavy-Lift / Unit": None}),
         ])
-    st.caption("Sample options are pre-filled for illustration — replace them with the real offers. "
-               "Costs are per unit (one container / one piece). Add rows at the bottom of the table.")
+    st.caption("Sample offers are pre-filled for illustration — replace them with the real offers. Charges are per unit "
+               "(one container / one piece): **a number = separate charge · 0 = included in the freight · empty = not "
+               "stated or excluded** (filled in and flagged in the comparison). Add rows at the bottom of the table.")
 
     sail_edit = st.data_editor(
         st.session_state.sail_df, key="sail_editor", num_rows="dynamic", hide_index=True, use_container_width=True,
-        column_order=["Option", "Carrier", "Vessel", "Vessel Type", "POL", "POD", "ETD", "ETA", "Direct",
+        column_order=["Offered By", "Quote Ref", "Option", "Carrier", "Vessel", "Vessel Type", "POL", "POD", "ETD", "ETA", "Direct",
                       "Transshipment Port", "Routing", "Capacity (units)", "Max Gross / Box (t)", "Currency",
                       "Freight / 20ft", "Freight / 40ft", "BAF / TEU (if not incl.)", "DG Surcharge / Unit",
                       "Heavy-Lift / Unit", "DG Yard Origin / Unit", "Lashing / Unit", "Origin Local / Unit",
@@ -699,18 +703,57 @@ with tab_sail:
             return None
         return v.date() if hasattr(v, "date") and callable(getattr(v, "date")) else v
 
-    def sailing_unit_cost_usd(row, bom_row):
-        """All-in ocean + local cost for one unit of a BOM line on this sailing (USD)."""
-        fx = (1.0 / usd_to_eur) if str(row.get("Currency")).upper().startswith("EUR") else 1.0
+    CHARGE_COLS = {"baf": "BAF / TEU (if not incl.)", "dg": "DG Surcharge / Unit", "heavy": "Heavy-Lift / Unit",
+                   "dg_yard": "DG Yard Origin / Unit", "lashing": "Lashing / Unit",
+                   "origin": "Origin Local / Unit", "dest": "Dest. Local / Unit"}
+    CHARGE_LABELS = {"baf": "BAF", "dg": "DG surcharge", "heavy": "Heavy-lift", "dg_yard": "DG yard at origin",
+                     "lashing": "Lashing", "origin": "Origin local charges", "dest": "Destination local charges"}
+
+    def _fx_usd(row):
+        return (1.0 / usd_to_eur) if str(row.get("Currency")).upper().startswith("EUR") else 1.0
+
+    def _stated(row, col):
+        v = pd.to_numeric(row.get(col), errors="coerce")
+        return None if pd.isna(v) else float(v)
+
+    def _vclass(row):
+        return "container" if (row.get("Vessel Type") or "Container vessel") == "Container vessel" else "mpp"
+
+    # Highest stated value per charge and vessel class — used to fill charges an offer does not state
+    _fill = {}
+    for _, _r in sail_edit.iterrows():
+        for _k, _c in CHARGE_COLS.items():
+            _v = _stated(_r, _c)
+            if _v is not None:
+                _key = (_vclass(_r), _k)
+                _fill[_key] = max(_fill.get(_key, 0.0), _v * _fx_usd(_r))
+
+    _any_dg = any("Dangerous goods" in b["Checks"] for b in _bom_valid)
+    _any_heavy = any("Heavy box" in b["Checks"] for b in _bom_valid)
+
+    def _applies(key, bom_row=None):
+        if key in ("dg", "dg_yard"):
+            return ("Dangerous goods" in bom_row["Checks"]) if bom_row else _any_dg
+        if key == "heavy":
+            return ("Heavy box" in bom_row["Checks"]) if bom_row else _any_heavy
+        return True
+
+    def offer_unit_cost_usd(row, bom_row, normalized=True):
+        """Ocean + local cost for one unit of a BOM line (USD). normalized=True fills charges the offer does not state."""
+        fx = _fx_usd(row)
         size = bom_row["Container"]
         freight = _num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))
-        c = freight + _num(row.get("Lashing / Unit")) + _num(row.get("Origin Local / Unit")) + _num(row.get("Dest. Local / Unit"))
-        c += _num(row.get("BAF / TEU (if not incl.)")) * teu_factor(size, 1.0)
-        if "Dangerous goods" in bom_row["Checks"]:
-            c += _num(row.get("DG Surcharge / Unit")) + _num(row.get("DG Yard Origin / Unit"))
-        if "Heavy box" in bom_row["Checks"]:
-            c += _num(row.get("Heavy-Lift / Unit"))
-        return c * fx
+        total = freight * fx
+        for k, col in CHARGE_COLS.items():
+            if not _applies(k, bom_row):
+                continue
+            v = _stated(row, col)
+            v = v * fx if v is not None else (_fill.get((_vclass(row), k), 0.0) if normalized else 0.0)
+            total += v * (teu_factor(size, 1.0) if k == "baf" else 1.0)
+        return total
+
+    def offer_missing(row):
+        return [CHARGE_LABELS[k] for k, col in CHARGE_COLS.items() if _applies(k) and _stated(row, col) is None]
 
     sail_results = []
     for _, row in sail_edit.iterrows():
@@ -755,17 +798,26 @@ with tab_sail:
             warns.append("Capacity not stated")
 
         status = "❌ Not eligible" if fails else ("⚠️ Eligible — check" if warns else "✅ Eligible")
-        costs = {}
+        costs, quoted = {}, {}
         for b in _bom_valid:
             if b["Type"] not in costs:
-                costs[b["Type"]] = sailing_unit_cost_usd(row, b)
+                costs[b["Type"]] = offer_unit_cost_usd(row, b, normalized=True)
+                quoted[b["Type"]] = offer_unit_cost_usd(row, b, normalized=False)
+        missing = offer_missing(row)
+        if _num(row.get("Freight / 20ft")) <= 0 and _num(row.get("Freight / 40ft")) <= 0:
+            warns.append("Freight not stated")
+            status = "❌ Not eligible" if fails else "⚠️ Eligible — check"
         sail_results.append({
             "Option": opt, "Carrier": row.get("Carrier"), "Vessel": row.get("Vessel"), "Type": vtype,
             "POD": pod, "ETD": etd, "ETA": eta,
             "Transit (d)": (eta - etd).days if (eta and etd) else None,
             "Capacity": int(_num(row.get("Capacity (units)"))),
             "Status": status, "Issues": " · ".join(fails + warns),
-            "cost_usd": costs, "free_days": int(_num(row.get("Free Days"))), "eligible": not fails,
+            "cost_usd": costs, "quoted_usd": quoted, "missing": missing,
+            "offered_by": str(row.get("Offered By") or "").replace("nan", ""),
+            "quote_ref": str(row.get("Quote Ref") or "").replace("nan", ""),
+            "valid_until": valid, "routing": row.get("Routing"), "direct": bool(row.get("Direct")),
+            "free_days": int(_num(row.get("Free Days"))), "eligible": not fails,
         })
 
     _mult = usd_to_eur if is_eur_display else 1.0
@@ -774,7 +826,8 @@ with tab_sail:
     if sail_results:
         _types = list(dict.fromkeys(b["Type"] for b in _bom_valid))
         st.dataframe(pd.DataFrame([
-            dict({k: r[k] for k in ["Status", "Option", "Carrier", "Vessel", "Type", "POD"]},
+            dict({"Status": r["Status"], "Offered By": r["offered_by"]},
+                 **{k: r[k] for k in ["Option", "Carrier", "Vessel", "Type", "POD"]},
                  **{"ETD": r["ETD"].strftime("%d/%m/%Y") if r["ETD"] else "",
                     "ETA": r["ETA"].strftime("%d/%m/%Y") if r["ETA"] else "",
                     "Transit (d)": r["Transit (d)"], "Capacity": r["Capacity"]},
@@ -796,8 +849,9 @@ with tab_sail:
             st.warning("Eligible capacity is lower than the units to ship — add sailings or confirm more capacity.")
         else:
             st.success("Enough eligible sailings and capacity to ship the whole BOM. Allocation comes next.")
-        st.caption("All-in / unit = freight + lashing + origin & destination local charges + BAF (if not included) "
-                   "+ DG surcharge & DG yard (DG cargo) + heavy-lift (boxes above 30.48 t). On site ≈ ETA + 4 days.")
+        st.caption("All-in / unit = freight + lashing + origin & destination local charges + BAF + DG surcharge & DG yard "
+                   "(DG cargo) + heavy-lift (boxes above 30.48 t). Charges an offer does not state are filled with the highest "
+                   "value stated in the other offers (see Offer Comparison). On site ≈ ETA + 4 days.")
     else:
         st.info("Add sailing options to check them against the Project Brief.")
 
@@ -2222,148 +2276,148 @@ with tab8:
 # PROJECT FILE — save / load (sidebar)
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# CLIENT QUOTE (sell prices) — built from the Sailing Options and the plan
+# OFFER COMPARISON — compare the offers received on a like-for-like basis
 # ---------------------------------------------------------------------------
 with tab_quote:
-    st.subheader("📄 Client Quote — Ocean Freight per Vessel & Port of Discharge")
-    st.markdown("Builds a client-ready Excel quote from the sailing options. Only **sell prices** (cost + markup) are "
-                "exported — your costs and margin stay in the app.")
+    st.subheader("⚖️ Offer Comparison — Like-for-Like View of the Offers Received")
+    st.markdown("Compares every offer on the **same basis**: the full BOM shipped at each offer's rates, with charges an "
+                "offer does not state filled in (and flagged), plus compliance with the Project Brief and risk flags.")
 
-    _plan_opts = [l["Option"] for l in plan_lines if l["Effective"] > 0] if plan_lines else []
-    _all_opts = [r["Option"] for r in sail_results]
-    _default_opts = list(dict.fromkeys(_plan_opts)) or [r["Option"] for r in sail_results if r["eligible"]]
+    cmp_only_eligible = ui.checkbox("Show only offers that meet the Project Brief", value=False)
+    _cmp_cur = "EUR" if is_eur_display else "USD"
+    _cm = usd_to_eur if is_eur_display else 1.0
+    _kwh = _bess_mwh_sum * 1000.0
+    _units_total = sum(bom_totals.values())
+    _per_vessel_need = -(-_units_total // max(1, min_vessels)) if _units_total else 0
 
-    q1, q2, q3 = st.columns(3)
-    with q1:
-        quote_client = ui.text_input("Client name (optional):", value="")
-        quote_currency = ui.selectbox("Quote currency:", ["USD", "EUR"], index=0)
-    with q2:
-        quote_markup_pct = ui.number_input("Markup on all charges (%):", min_value=0.0, value=8.0, step=0.5)
-        quote_markup_unit = ui.number_input("Fixed handling fee per unit:", min_value=0.0, value=150.0, step=50.0,
-                                            help="In the quote currency, added to the ocean freight line")
-    with q3:
-        quote_options = ui.multiselect("Sailing options to quote:", options=_all_opts, default=_default_opts,
-                                       help="Default: vessels in the allocation plan, otherwise all eligible sailings")
-        _valids = [_d(r.get("Valid Until")) for _, r in sail_edit.iterrows()
-                   if str(r.get("Option")) in quote_options and _d(r.get("Valid Until"))]
-        quote_valid_until = ui.date_input("Quote valid until:", value=min(_valids) if _valids else date.today() + timedelta(days=14))
-    _pol_default = next((str(r.get("POL")) for _, r in sail_edit.iterrows() if str(r.get("Option")) in quote_options), "Shanghai")
-    quote_basis = ui.text_input("Basis:", value=f"FOB {_pol_default} — port-to-port ocean freight incl. local charges "
-                                                "at origin and destination")
-
-    def _itemized_sell(row, bom_row):
-        """Per-unit charges for one BOM line on one sailing, converted to the quote currency, markup applied."""
-        src_usd = (1.0 / usd_to_eur) if str(row.get("Currency")).upper().startswith("EUR") else 1.0
-        to_q = usd_to_eur if quote_currency == "EUR" else 1.0
-        k = src_usd * to_q * (1 + quote_markup_pct / 100.0)
-        size = bom_row["Container"]
-        ch = {
-            "freight": (_num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))) * k
-                       + quote_markup_unit,
-            "baf": _num(row.get("BAF / TEU (if not incl.)")) * teu_factor(size, 1.0) * k,
-            "dg": _num(row.get("DG Surcharge / Unit")) * k if "Dangerous goods" in bom_row["Checks"] else 0.0,
-            "heavy": _num(row.get("Heavy-Lift / Unit")) * k if "Heavy box" in bom_row["Checks"] else 0.0,
-            "dg_yard": _num(row.get("DG Yard Origin / Unit")) * k if "Dangerous goods" in bom_row["Checks"] else 0.0,
-            "lashing": _num(row.get("Lashing / Unit")) * k,
-            "origin": _num(row.get("Origin Local / Unit")) * k,
-            "dest": _num(row.get("Dest. Local / Unit")) * k,
-        }
-        return {key: round(v, 2) for key, v in ch.items()}
-
-    _eff_qty = {}
-    for l in (plan_lines or []):
-        _eff_qty[(l["Option"], l["Equipment"])] = _eff_qty.get((l["Option"], l["Equipment"]), 0) + l["Effective"]
-    _rows_by_opt = {str(r.get("Option")): r for _, r in sail_edit.iterrows()}
-    _bom_first = {}
-    for b in bom_rows:
-        _bom_first.setdefault(b["Type"], b)
-
-    quote_opts, preview, cost_total, sell_total = [], [], 0.0, 0.0
-    for opt in quote_options:
-        row = _rows_by_opt.get(opt)
-        sres = _sail_by_opt.get(opt)
-        if row is None or sres is None:
+    cmp = []
+    for r in sail_results:
+        if cmp_only_eligible and not r["eligible"]:
             continue
-        units = []
-        for t, b in _bom_first.items():
-            ch = _itemized_sell(row, b)
-            qty = _eff_qty.get((opt, t)) if _eff_qty else None
-            units.append({"type": t, "qty": qty, "charges": ch})
-            unit_sell = sum(ch.values())
-            unit_cost = sres["cost_usd"].get(t, 0) * (usd_to_eur if quote_currency == "EUR" else 1.0)
-            if qty:
-                cost_total += qty * unit_cost
-                sell_total += qty * unit_sell
-            preview.append({"Option": opt, "Vessel": sres["Vessel"], "POD": sres["POD"].split(",")[0], "Equipment": t,
-                            "Sell / unit": f"{quote_currency} {unit_sell:,.0f}", "Qty": qty or "—",
-                            "Sell total": f"{quote_currency} {(qty or 0) * unit_sell:,.0f}" if qty else "rates only",
-                            "Status": sres["Status"]})
-        quote_opts.append({
-            "option": opt, "carrier": sres["Carrier"], "vessel": sres["Vessel"], "vessel_type": sres["Type"],
-            "pol": str(row.get("POL") or ""), "pod": sres["POD"], "etd": sres["ETD"], "eta": sres["ETA"],
-            "transit_days": sres["Transit (d)"], "routing": str(row.get("Routing") or ""),
-            "direct": bool(row.get("Direct")), "transshipment": str(row.get("Transshipment Port") or "").replace("nan", ""),
-            "free_days": sres["free_days"], "valid_until": _d(row.get("Valid Until")), "units": units,
-        })
+        full_norm = sum(bom_totals.get(t, 0) * r["cost_usd"].get(t, 0) for t in bom_totals)
+        full_quoted = sum(bom_totals.get(t, 0) * r["quoted_usd"].get(t, 0) for t in bom_totals)
+        risks = []
+        if r["missing"]:
+            risks.append("Not stated: " + ", ".join(r["missing"]))
+        if r["Capacity"] and _per_vessel_need and r["Capacity"] < min(_per_vessel_need, _units_total):
+            risks.append(f"Capacity {r['Capacity']} < ~{_per_vessel_need} units per vessel needed")
+        g_ = port_group_of.get(r["POD"])
+        if g_ in group_cap:
+            risks.append(f"Port limit {group_cap[g_]} BESS at {r['POD'].split(',')[0]}")
+        if r["free_days"] and r["free_days"] < 3:
+            risks.append(f"Only {r['free_days']} free days")
+        if r["valid_until"] and r["ETD"] and r["valid_until"] < r["ETD"]:
+            risks.append("Validity ends before ETD")
+        cmp.append({"r": r, "full_norm": full_norm, "full_quoted": full_quoted, "risks": risks})
 
-    if not quote_opts:
-        st.info("Select at least one sailing option to build a quote.")
+    if not cmp:
+        st.info("No offers to compare yet — add them in the Offers Received tab.")
     else:
-        if any(not _sail_by_opt[o["option"]]["eligible"] for o in quote_opts):
-            st.warning("Some selected options do NOT meet the Project Brief (see Sailing Options). "
-                       "They will be quoted with their real routing — check before sending.")
-        st.dataframe(pd.DataFrame(preview), use_container_width=True, hide_index=True)
-        if sell_total:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Quote total (allocated units)", f"{quote_currency} {sell_total:,.0f}")
-            m2.metric("Your cost", f"{quote_currency} {cost_total:,.0f}", help="Internal — not exported")
-            m3.metric("Margin", f"{quote_currency} {sell_total - cost_total:,.0f}",
-                      f"{(sell_total - cost_total) / sell_total * 100:.1f}%" if sell_total else None)
+        elig = [c for c in cmp if c["r"]["eligible"]]
+        cheapest = min(elig, key=lambda c: c["full_norm"]) if elig else None
+        fastest = min([c for c in elig if c["r"]["ETA"]], key=lambda c: c["r"]["ETA"], default=None) if elig else None
+        cmp.sort(key=lambda c: (not c["r"]["eligible"], c["full_norm"]))
 
-        notes = []
-        if all(o["direct"] for o in quote_opts):
-            notes.append("Direct sailing on every quoted vessel — no transshipment, no discharge or reloading onto "
-                         "another vessel at any stage.")
-        else:
-            notes.append("Routing per option as stated on each option sheet (direct / transshipment).")
-        if all(o["routing"] == "Cape of Good Hope" for o in quote_opts):
-            notes.append("Routing via the Cape of Good Hope — no Red Sea, Bab el-Mandeb or Suez Canal transit.")
-        if insurance_by_client:
-            notes.append("Marine insurance is arranged by the client under its own policy and is not included.")
-        if max_bess_per_vessel:
-            notes.append(f"Split between vessels follows the client's insurer limit of {max_bess_per_vessel} BESS units per voyage.")
-        for p_, g_ in port_group_of.items():
-            if g_ in group_cap and any(o["pod"] == p_ for o in quote_opts):
-                notes.append(f"{p_.split(',')[0]}: port rule of max {group_cap[g_]} BESS in port at once"
-                             + (" (recently introduced, subject to change)" if group_temp.get(g_) else "")
-                             + " — prompt pick-up after discharge must be arranged.")
-        if special_handling:
-            notes.append("Handling per the manufacturer's instructions: " + special_handling.strip())
-        notes.append("Rates per unit, subject to carrier space and dangerous-goods / heavy-weight acceptance at booking.")
-        _excl = "inland transport, customs clearance, duties and taxes, storage or demurrage beyond the free time"
-        if is_israel:
-            _excl += ", Ministry of Transport transport permits and Toxins Permits"
-        notes.append(f"Not included: {_excl}.")
-        notes.append(f"Quote valid until {quote_valid_until.strftime('%d/%m/%Y')}.")
+        h1, h2, h3 = st.columns(3)
+        if cheapest:
+            h1.metric("Cheapest eligible offer", f"{cheapest['r']['Option']} · {cheapest['r']['offered_by'] or cheapest['r']['Carrier']}",
+                      f"{_cmp_cur} {cheapest['full_norm'] * _cm:,.0f} for the full BOM", delta_color="off")
+        if fastest:
+            h2.metric("Fastest eligible offer", f"{fastest['r']['Option']} · {fastest['r']['offered_by'] or fastest['r']['Carrier']}",
+                      f"ETA {fastest['r']['ETA'].strftime('%d/%m/%Y')}", delta_color="off")
+        if cheapest and fastest and cheapest is not fastest:
+            _dd = (cheapest["r"]["ETA"] - fastest["r"]["ETA"]).days if cheapest["r"]["ETA"] else 0
+            h3.metric("Price of speed", f"{_cmp_cur} {(fastest['full_norm'] - cheapest['full_norm']) * _cm:,.0f}",
+                      f"{_dd} days earlier", delta_color="off")
+        elif cheapest:
+            h3.metric("Price of speed", "—", "Cheapest is also the fastest", delta_color="off")
+        if not elig:
+            st.error("No offer meets the Project Brief yet.")
 
-        _cargo = []
-        for _, b in bom_edit.iterrows():
-            q_ = int(_num(b.get("Qty")))
-            if q_ > 0:
-                _cargo.append({"item": b.get("Item"), "model": b.get("Model"), "qty": q_, "container":
-                               f'{b.get("Container")}{" SOC" if bool(b.get("SOC")) else ""}',
-                               "weight_t": _num(b.get("Gross Weight (t)")),
-                               "dg": str(b.get("DG Class") or "").replace("nan", "")})
-        meta = {"project": project_name, "client": quote_client,
-                "quote_ref": f"TV-{date.today().strftime('%Y%m%d')}-{_re.sub(r'[^A-Za-z0-9]+', '', project_name)[:12].upper()}",
-                "quote_date": date.today(), "valid_until": quote_valid_until, "currency": quote_currency,
-                "incoterm_basis": quote_basis, "cargo_lines": _cargo, "special_handling": special_handling,
-                "notes": notes}
-        st.markdown("**Confirmations & terms in the quote:**")
-        st.markdown("\n".join(f"- {n}" for n in notes))
-        _xlsx = _quote_mod.build_quote_xlsx(meta, quote_opts, logo_path=logo_path if os.path.exists(logo_path) else None)
-        st.download_button("⬇️ Download client quote (Excel)", data=_xlsx,
-                           file_name=f"{meta['quote_ref']}.xlsx",
+        headers = ["Rank", "Offered by", "Quote ref", "Carrier", "Vessel", "Type", "POD", "ETD", "ETA", "Transit",
+                   "Free days", "Valid until", "Compliance", f"Per BESS unit ({_cmp_cur})",
+                   f"Full BOM — quoted ({_cmp_cur})", f"Full BOM — like-for-like ({_cmp_cur})",
+                   f"Per kWh ({_cmp_cur})", "vs cheapest", "Risk flags"]
+        rows_out, fills, rank = [], [], 0
+        for c in cmp:
+            r = c["r"]
+            if r["eligible"]:
+                rank += 1
+            delta = (c["full_norm"] - cheapest["full_norm"]) / cheapest["full_norm"] * 100 if (cheapest and cheapest["full_norm"]) else 0
+            rows_out.append({
+                "Rank": rank if r["eligible"] else "—", "Offered by": r["offered_by"], "Quote ref": r["quote_ref"],
+                "Carrier": r["Carrier"], "Vessel": r["Vessel"], "Type": r["Type"].replace(" vessel", ""),
+                "POD": r["POD"].split(",")[0],
+                "ETD": r["ETD"].strftime("%d/%m/%Y") if r["ETD"] else "", "ETA": r["ETA"].strftime("%d/%m/%Y") if r["ETA"] else "",
+                "Transit": r["Transit (d)"], "Free days": r["free_days"],
+                "Valid until": r["valid_until"].strftime("%d/%m/%Y") if r["valid_until"] else "",
+                "Compliance": r["Status"] + ("" if r["eligible"] else f" — {r['Issues']}"),
+                f"Per BESS unit ({_cmp_cur})": round(r["cost_usd"].get("BESS", 0) * _cm),
+                f"Full BOM — quoted ({_cmp_cur})": round(c["full_quoted"] * _cm),
+                f"Full BOM — like-for-like ({_cmp_cur})": round(c["full_norm"] * _cm),
+                f"Per kWh ({_cmp_cur})": round(c["full_norm"] * _cm / _kwh, 2) if _kwh else "",
+                "vs cheapest": ("cheapest" if c is cheapest else f"+{delta:.1f}%") if r["eligible"] else "—",
+                "Risk flags": " · ".join(c["risks"]),
+            })
+            fills.append(GOOD_FILL if (c is cheapest or c is fastest) else (BAD_FILL if not r["eligible"] else None))
+        st.dataframe(pd.DataFrame(rows_out), use_container_width=True, hide_index=True)
+        st.caption(f"Full BOM = all {_units_total} units of the BOM at the offer's rates (a common yardstick, even though "
+                   "the cargo will be split between vessels). 'Like-for-like' fills charges an offer does not state with the "
+                   "highest value stated in the other offers for the same vessel type.")
+
+        # charge breakdown per offer (per BESS unit, or first BOM type)
+        _bt = "BESS" if "BESS" in bom_totals else (next(iter(bom_totals), None))
+        b_rows = []
+        _rows_by_opt = {str(x.get("Option")): x for _, x in sail_edit.iterrows()}
+        if _bt:
+            _bom_line = next(b for b in _bom_valid if b["Type"] == _bt)
+            lines = [("Freight", None)] + [(CHARGE_LABELS[k], k) for k in CHARGE_COLS if _applies(k, _bom_line)]
+            b_headers = [f"Charge per {_bt} unit"] + [c["r"]["Option"] for c in cmp]
+            for label, key in lines:
+                rr = {f"Charge per {_bt} unit": label}
+                for c in cmp:
+                    row = _rows_by_opt.get(c["r"]["Option"])
+                    fx = _fx_usd(row) * _cm
+                    size = _bom_line["Container"]
+                    if key is None:
+                        v = _num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))
+                        rr[c["r"]["Option"]] = f"{v * fx:,.0f}"
+                    else:
+                        v = _stated(row, CHARGE_COLS[key])
+                        mult = teu_factor(size, 1.0) if key == "baf" else 1.0
+                        if v is None:
+                            rr[c["r"]["Option"]] = f"not stated → {_fill.get((_vclass(row), key), 0.0) * _cm * mult:,.0f}"
+                        else:
+                            rr[c["r"]["Option"]] = "included" if v == 0 else f"{v * fx * mult:,.0f}"
+                b_rows.append(rr)
+            with st.expander(f"Charge breakdown per {_bt} unit ({_cmp_cur})"):
+                st.dataframe(pd.DataFrame(b_rows), use_container_width=True, hide_index=True)
+
+        basis = [
+            f"Project: {project_name}",
+            f"Cargo: " + ", ".join(f"{q} × {t}" for t, q in bom_totals.items()) +
+            (f" · {_bess_mwh_sum:,.1f} MWh DC" if _bess_mwh_sum else ""),
+            f"Sailing window: {brief_fob_date.strftime('%d/%m/%Y')} – {brief_must_sail_by.strftime('%d/%m/%Y')}; "
+            f"required on site {delivery_date.strftime('%d/%m/%Y')}",
+            "Requirements: " + ", ".join(x for x in [
+                "direct sailing only" if req_direct_only else "",
+                "no Red Sea / Suez routing" if req_no_red_sea else "",
+                f"max {max_bess_per_vessel} BESS per vessel" if max_bess_per_vessel else "",
+                "marine insurance by the client" if insurance_by_client else ""] if x),
+            "Full BOM = all units of the BOM priced at each offer's per-unit rates (common yardstick).",
+            "Like-for-like = charges not stated in an offer are filled with the highest value stated in the other offers "
+            "for the same vessel type (container vs MPP / charter). 0 in an offer = included in the freight.",
+            "DG surcharge and DG yard apply to dangerous-goods units only; heavy-lift applies to boxes above 30.48 t gross.",
+            "Ocean and local charges only — inland transport, duties, VAT and permits are not part of this comparison.",
+        ]
+        _xlsx = _cmp_mod.build_comparison_xlsx(
+            {"project": project_name, "currency": _cmp_cur,
+             "units_text": f"{_units_total} units, {_bess_mwh_sum:,.1f} MWh DC"},
+            rows_out, headers,
+            money_cols={f"Per BESS unit ({_cmp_cur})", f"Full BOM — quoted ({_cmp_cur})", f"Full BOM — like-for-like ({_cmp_cur})"},
+            fills=fills, breakdown_rows=b_rows, breakdown_headers=b_headers if _bt else [], basis_lines=basis)
+        st.download_button("⬇️ Download comparison report (Excel)", data=_xlsx,
+                           file_name=f"Offer_Comparison_{_re.sub(r'[^A-Za-z0-9]+', '_', project_name)}.xlsx",
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
