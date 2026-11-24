@@ -25,6 +25,9 @@ def _current_kpis():
         "Landed cost per kWh (USD)": round(plan["landed_ex_vat"] / kwh, 2) if kwh else None,
         "Last on site": max(on_site).isoformat() if on_site else None,
         "Days vs required date": ((delivery_date - max(on_site)).days if on_site else None),
+        "Cost of delay (USD)": round(G.get("project_delay_cost_usd", 0.0) or 0.0),
+        "Logistics + delay (USD)": round(plan["logistics_total_ex_vat"] + plan["project_level_costs"]
+                                         + (G.get("project_delay_cost_usd", 0.0) or 0.0)),
         "Payment terms": G.get("pay_preset", ""),
         "Peak cash (USD)": round(float(_monthly["Cumulative"].max()) / _m) if _monthly is not None else None,
         "Peak cash month": str(_monthly["Cumulative"].idxmax()) if _monthly is not None else None,

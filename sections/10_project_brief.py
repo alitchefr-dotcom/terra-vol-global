@@ -44,6 +44,40 @@ with tab0:
         value="Vertical lift only, no dragging. Container upright and level throughout transport. "
               "Secured with suitable twist-locks and lashings on board.", height=80)
 
+    # ---------------- Cost of delay ----------------
+    with st.expander("⏱️ Cost of Delay — what each day after the Required-on-Site date costs", expanded=False):
+        st.caption("Used to compare offers on total cost (freight + delay), not only on freight. Enter daily amounts "
+                   f"in {curr_code}; leave 0 what does not apply. Example: 100 MW earning 100,000 per MW per year "
+                   "≈ 27,400 per day of lost revenue.")
+        cd1, cd2, cd3, cd4 = st.columns(4)
+        with cd1:
+            cod_revenue = ui.number_input(f"Lost revenue per day ({curr_code}):", min_value=0.0, value=0.0, step=1000.0,
+                                          help="Revenue the project does not earn while it is not in operation")
+        with cd2:
+            cod_penalty = ui.number_input(f"Grid / PPA / offtake penalties per day ({curr_code}):", min_value=0.0,
+                                          value=0.0, step=1000.0)
+        with cd3:
+            cod_overhead = ui.number_input(f"Financing & site overhead per day ({curr_code}):", min_value=0.0,
+                                           value=0.0, step=500.0,
+                                           help="Construction interest, site team, crane and equipment standing time")
+        with cd4:
+            cod_lds = ui.number_input(f"Supplier delay damages received per day ({curr_code}):", min_value=0.0,
+                                      value=0.0, step=500.0,
+                                      help="Liquidated damages the supplier pays if its delay causes the late arrival "
+                                           "(reduces the cost only when the supplier is responsible)")
+        cdx1, cdx2 = st.columns(2)
+        with cdx1:
+            cod_days_after_eta = ui.number_input("Days from vessel arrival to equipment on site:", min_value=0, value=7,
+                                                 step=1, help="Port clearance, permits and inland haul")
+        with cdx2:
+            cod_lds_apply = ui.checkbox("Count supplier delay damages (delay caused by the supplier)", value=False)
+    _cod_to_usd = (1.0 / usd_to_eur) if is_eur_display else 1.0
+    delay_cost_per_day_usd = max(0.0, cod_revenue + cod_penalty + cod_overhead - (cod_lds if cod_lds_apply else 0.0)) * _cod_to_usd
+
+    def delay_days(on_site):
+        """Days after the Required-on-Site date (0 when on time or no date)."""
+        return max(0, (on_site - delivery_date).days) if (on_site and delivery_date) else 0
+
     # ---------------- Ports ----------------
     st.markdown("#### 3. Ports of Discharge to Quote")
     brief_pods = ui.multiselect("Ports of discharge (POD):", options=destination_ports,

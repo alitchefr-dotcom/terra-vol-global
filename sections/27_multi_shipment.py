@@ -341,7 +341,15 @@ with tab8:
             "Shipment Total (ex VAT)": _fmt(r["total_ex_vat"]),
             "Import VAT": _fmt(r["vat"]),
         })
+    _on_sites = [r["eta"] + timedelta(days=_port_days_by_name.get(r["name"], 0) + 2) for r in plan["shipments"]
+                 if r["eta"] and r["units"]]
+    project_days_late = delay_days(max(_on_sites)) if _on_sites else 0
+    project_delay_cost_usd = project_days_late * delay_cost_per_day_usd
     if late_shipments:
+        if delay_cost_per_day_usd > 0:
+            st.metric("Cost of delay (project complete on site after the required date — not in the landed cost)",
+                      _fmt(project_delay_cost_usd), f"{project_days_late} days × {_fmt(delay_cost_per_day_usd)}/day",
+                      delta_color="off")
         st.error(f"⚠️ Arriving after the required-on-site date ({delivery_date.strftime('%d/%m/%Y')}): "
                  + ", ".join(late_shipments) + ". Move the sailing earlier or change the required date in the sidebar.")
     elif rows:

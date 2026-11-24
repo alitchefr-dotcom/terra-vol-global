@@ -62,9 +62,11 @@ def build_comparison_xlsx(meta, comparison_rows, comparison_headers, money_cols,
     _title(ws, f"Offer Comparison — {meta['project']}",
            f"Prepared {date.today().strftime('%d/%m/%Y')} · amounts in {meta['currency']} · "
            f"{meta['units_text']}")
-    widths = [6, 16, 12, 16, 18, 12, 18, 11, 11, 8, 8, 11, 18, 14, 14, 14, 12, 12, 30]
-    r = _table(ws, 4, comparison_headers, comparison_rows, money_cols, fills, widths[:len(comparison_headers)])
-    ws.cell(row=r, column=1, value="Green = recommended (cheapest eligible / fastest eligible). Red = does not meet the "
+    _w = {"Rank": 6, "Transit": 8, "Free days": 8, "Days late": 8, "Risk flags": 40, "Compliance": 30,
+          "Offered by": 16, "Carrier": 16, "Vessel": 18, "POD": 18, "Terms": 18}
+    widths = [_w.get(h, 13) for h in comparison_headers]
+    r = _table(ws, 4, comparison_headers, comparison_rows, money_cols, fills, widths)
+    ws.cell(row=r, column=1, value="Green = recommended (cheapest eligible / fastest eligible / best including the cost of delay). Red = does not meet the "
                                    "project requirements.").font = Font(italic=True, color="5A6B7F")
 
     wb2 = wb.create_sheet("Charge breakdown")

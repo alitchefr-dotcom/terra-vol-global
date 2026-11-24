@@ -108,6 +108,9 @@ with tab_dash:
         alerts.append(("🟠", "Allocation plan", w_))
     for l_ in (_G.get("late_shipments") or []):
         alerts.append(("🔴", "Schedule", f"Arrives after the required-on-site date: {l_}"))
+    if _G.get("project_delay_cost_usd"):
+        alerts.append(("🔴", "Schedule", f"Cost of delay {format_currency(project_delay_cost_usd * _cm, curr_code)} "
+                                         f"({project_days_late} days late)."))
     if is_israel and not _G.get("has_toxins_permit", True):
         alerts.append(("🔴", "Permits", f"Toxins Permit missing for the {_G.get('toxins_missing_text', '')}."))
     for d_ in (_G.get("dash") or []):

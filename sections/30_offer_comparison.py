@@ -59,7 +59,11 @@ with tab_quote:
             risks.append(f"D-ring hot work {'by shipper' if r['hot_work'] == 'By shipper' else 'TBC'}")
         if r["terms"] != "Liner terms":
             risks.append(f"{r['terms']} terms — stevedoring {'not included' if r['terms'] in ('FIO', 'FIOS') else 'partly excluded'}")
-        cmp.append({"r": r, "full_norm": full_norm, "full_quoted": full_quoted, "risks": risks, "co2": offer_co2(r)})
+        _on_site = (r["ETA"] + timedelta(days=int(cod_days_after_eta))) if r["ETA"] else None
+        _late = delay_days(_on_site)
+        cmp.append({"r": r, "full_norm": full_norm, "full_quoted": full_quoted, "risks": risks, "co2": offer_co2(r),
+                    "on_site": _on_site, "late": _late, "delay_cost": _late * delay_cost_per_day_usd,
+                    "total_delay": full_norm + _late * delay_cost_per_day_usd})
 
     if not cmp:
         st.info("No offers to compare yet — add them in the Offers Received tab.")
@@ -67,7 +71,9 @@ with tab_quote:
         elig = [c for c in cmp if c["r"]["eligible"]]
         cheapest = min(elig, key=lambda c: c["full_norm"]) if elig else None
         fastest = min([c for c in elig if c["r"]["ETA"]], key=lambda c: c["r"]["ETA"], default=None) if elig else None
-        cmp.sort(key=lambda c: (not c["r"]["eligible"], c["full_norm"]))
+        _use_delay = delay_cost_per_day_usd > 0
+        best_total = min(elig, key=lambda c: c["total_delay"]) if (elig and _use_delay) else None
+        cmp.sort(key=lambda c: (not c["r"]["eligible"], c["total_delay"] if _use_delay else c["full_norm"]))
 
         h1, h2, h3 = st.columns(3)
         if cheapest:
@@ -82,13 +88,24 @@ with tab_quote:
                       f"{_dd} days earlier", delta_color="off")
         elif cheapest:
             h3.metric("Price of speed", "—", "Cheapest is also the fastest", delta_color="off")
+        if best_total:
+            _bt_note = ("same as the cheapest" if best_total is cheapest else
+                        f"saves {_cmp_cur} {(cheapest['total_delay'] - best_total['total_delay']) * _cm:,.0f} vs the cheapest "
+                        f"({cheapest['late']} → {best_total['late']} days late)")
+            st.success(f"**Best offer including the cost of delay "
+                       f"({_cmp_cur} {delay_cost_per_day_usd * _cm:,.0f} per day late): {best_total['r']['Option']} · "
+                       f"{best_total['r']['offered_by'] or best_total['r']['Carrier']}** — total "
+                       f"{_cmp_cur} {best_total['total_delay'] * _cm:,.0f}, {_bt_note}.")
+        elif elig:
+            st.caption("Add a Cost of Delay in the Project Brief to rank the offers on freight + delay.")
         if not elig:
             st.error("No offer meets the Project Brief yet.")
 
         headers = ["Rank", "Offered by", "Quote ref", "Carrier", "Vessel", "Type", "POD", "ETD", "ETA", "Transit",
                    "Free days", "Valid until", "Terms", "Stowage", "DG accept.", "Compliance", f"Per BESS unit ({_cmp_cur})",
                    f"Full BOM — quoted ({_cmp_cur})", f"Full BOM — like-for-like ({_cmp_cur})",
-                   f"Per kWh ({_cmp_cur})", "CO2e full BOM (t)", "vs cheapest", "Risk flags"]
+                   f"Per kWh ({_cmp_cur})", "Est. on site", "Days late", f"Cost of delay ({_cmp_cur})",
+                   f"Total incl. delay ({_cmp_cur})", "CO2e full BOM (t)", "vs cheapest", "Risk flags"]
         rows_out, fills, rank = [], [], 0
         for c in cmp:
             r = c["r"]
@@ -109,11 +126,15 @@ with tab_quote:
                 f"Full BOM — quoted ({_cmp_cur})": round(c["full_quoted"] * _cm),
                 f"Full BOM — like-for-like ({_cmp_cur})": round(c["full_norm"] * _cm),
                 f"Per kWh ({_cmp_cur})": round(c["full_norm"] * _cm / _kwh, 2) if _kwh else "",
+                "Est. on site": c["on_site"].strftime("%d/%m/%Y") if c["on_site"] else "",
+                "Days late": c["late"] if c["on_site"] else "",
+                f"Cost of delay ({_cmp_cur})": round(c["delay_cost"] * _cm),
+                f"Total incl. delay ({_cmp_cur})": round(c["total_delay"] * _cm),
                 "CO2e full BOM (t)": round(c["co2"], 1),
                 "vs cheapest": ("cheapest" if c is cheapest else f"+{delta:.1f}%") if r["eligible"] else "—",
                 "Risk flags": " · ".join(c["risks"]),
             })
-            fills.append(GOOD_FILL if (c is cheapest or c is fastest) else (BAD_FILL if not r["eligible"] else None))
+            fills.append(GOOD_FILL if (c is cheapest or c is fastest or c is best_total) else (BAD_FILL if not r["eligible"] else None))
         st.dataframe(pd.DataFrame(rows_out), use_container_width=True, hide_index=True)
         st.caption(f"Full BOM = all {_units_total} units of the BOM at the offer's rates (a common yardstick, even though "
                    "the cargo will be split between vessels). 'Like-for-like' fills charges an offer does not state with the "
@@ -175,12 +196,16 @@ with tab_quote:
             "or discharge (stevedoring) cost is added — stated, or filled from the other offers and flagged.",
             "DG surcharge and DG yard apply to dangerous-goods units only; heavy-lift applies to boxes above 30.48 t gross.",
             "Ocean and local charges only — inland transport, duties, VAT and permits are not part of this comparison.",
+            (f"Cost of delay: {_cmp_cur} {delay_cost_per_day_usd * _cm:,.0f} per day after the required-on-site date; "
+             f"on site = ETA + {int(cod_days_after_eta)} days (clearance, permits, inland haul).")
+            if delay_cost_per_day_usd > 0 else "No cost of delay entered.",
         ]
         _xlsx = _cmp_mod.build_comparison_xlsx(
             {"project": project_name, "currency": _cmp_cur,
              "units_text": f"{_units_total} units, {_bess_mwh_sum:,.1f} MWh DC"},
             rows_out, headers,
-            money_cols={f"Per BESS unit ({_cmp_cur})", f"Full BOM — quoted ({_cmp_cur})", f"Full BOM — like-for-like ({_cmp_cur})"},
+            money_cols={f"Per BESS unit ({_cmp_cur})", f"Full BOM — quoted ({_cmp_cur})", f"Full BOM — like-for-like ({_cmp_cur})",
+                        f"Cost of delay ({_cmp_cur})", f"Total incl. delay ({_cmp_cur})"},
             fills=fills, breakdown_rows=b_rows, breakdown_headers=b_headers if _bt else [], basis_lines=basis)
         st.download_button("⬇️ Download comparison report (Excel)", data=_xlsx,
                            file_name=f"Offer_Comparison_{_re.sub(r'[^A-Za-z0-9]+', '_', project_name)}.xlsx",
