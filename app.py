@@ -38,7 +38,8 @@ def port_to_lane(port):
     if any(k in p for k in ["genoa", "valencia", "marseille", "barcelona", "spain", "france"]):
         return "China - West Med"
     if any(k in p for k in ["rotterdam", "antwerp", "hamburg", "bremerhaven", "gdansk", "gdynia",
-                            "helsinki", "kotka", "netherlands", "germany", "poland", "belgium", "finland"]):
+                            "helsinki", "kotka", "netherlands", "germany", "poland", "belgium", "finland",
+                            "klaip", "riga", "muuga", "tallinn", "lithuania", "latvia", "estonia"]):
         return "China - North Europe"
     return None
 
@@ -154,7 +155,8 @@ PORT_COORDS = {
     "Piraeus, Greece": (37.94, 23.62), "Thessaloniki, Greece": (40.63, 22.93),
     "Hamburg, Germany": (53.54, 9.97), "Bremerhaven, Germany": (53.56, 8.56),
     "Rotterdam, Netherlands": (51.95, 4.14), "Antwerp, Belgium": (51.28, 4.30),
-    "Helsinki / Kotka, Finland": (60.46, 26.95), "Valencia, Spain": (39.44, -0.32), "Marseille, France": (43.40, 4.90),
+    "Helsinki / Kotka, Finland": (60.46, 26.95), "Klaipėda, Lithuania": (55.71, 21.12),
+    "Riga, Latvia": (57.00, 24.08), "Muuga / Tallinn, Estonia": (59.50, 24.95), "Valencia, Spain": (39.44, -0.32), "Marseille, France": (43.40, 4.90),
     "Haifa Bay Port (SIPG), Israel": (32.82, 35.03), "Haifa Port (Adani), Israel": (32.82, 35.00),
     "Israel Shipyards Port (Haifa), Israel": (32.81, 35.04), "Ashdod Port, Israel": (31.82, 34.64),
     "TIL - Hadarom South Port (Ashdod), Israel": (31.80, 34.62), "Eilat Port, Israel": (29.54, 34.95),
@@ -166,6 +168,7 @@ DEFAULT_SITE_COORDS = {
     "Spain": "40.4168, -3.7038", "Netherlands": "52.0907, 5.1214", "Belgium": "50.8503, 4.3517",
     "Austria": "48.2082, 16.3738", "Czech Republic": "50.0755, 14.4378", "Slovakia": "48.1486, 17.1077",
     "Croatia": "45.8150, 15.9819", "Israel": "31.2518, 34.7913",
+    "Lithuania": "54.6872, 25.2797", "Latvia": "56.9496, 24.1052", "Estonia": "59.4370, 24.7536",
 }
 ROAD_FACTOR = 1.3  # straight-line distance x 1.3 ~ typical road distance
 
@@ -263,6 +266,9 @@ EUROPEAN_VAT_RATES = {
     "Czech Republic": 21.0,
     "Slovakia": 23.0,  # 23% since 1 Jan 2025
     "Croatia": 25.0,
+    "Lithuania": 21.0,
+    "Latvia": 21.0,
+    "Estonia": 24.0,
     "Israel": 18.0
 }
 VAT_TABLE_VERIFIED = "November 2026"  # standard rates checked against published 2026 EU tables / Israel Tax Authority
@@ -446,7 +452,8 @@ all_european_ports = [
     "Piraeus, Greece", "Thessaloniki, Greece", 
     "Hamburg, Germany", "Bremerhaven, Germany", 
     "Rotterdam, Netherlands", "Antwerp, Belgium", 
-    "Helsinki / Kotka, Finland", "Valencia, Spain", "Marseille, France"
+    "Helsinki / Kotka, Finland", "Valencia, Spain", "Marseille, France",
+    "Klaipėda, Lithuania", "Riga, Latvia", "Muuga / Tallinn, Estonia"
 ]
 destination_ports = ISRAEL_PORTS if is_israel else all_european_ports
 
@@ -556,7 +563,8 @@ with tab0:
             "Qty": st.column_config.NumberColumn("Qty", min_value=0, step=1),
             "Gross Weight (t)": st.column_config.NumberColumn("Gross Weight (t)", min_value=0.0, step=0.1, format="%.1f"),
             "Energy per Unit (MWh)": st.column_config.NumberColumn("Energy per Unit (MWh)", min_value=0.0, step=0.1, format="%.3f"),
-            "DG Class": st.column_config.TextColumn("DG Class", help="e.g. UN3536 Class 9; empty if not dangerous goods"),
+            "DG Class": st.column_config.TextColumn("DG Class", help="e.g. UN3536 Class 9; empty if not dangerous goods; "
+                                                    "add 'TBC' if the UN number is not confirmed"),
         },
     )
     bom_sync = ui.checkbox("Use BOM quantities in all calculations", value=True)
@@ -589,6 +597,8 @@ with tab0:
         dg = str(r.get("DG Class") or "").strip()
         if dg and dg.lower() not in ("nan", "none", "—", "-"):
             flags.append(f"Dangerous goods ({dg}) — DG declaration, DG acceptance, DG yard at origin")
+            if any(x in dg.lower() for x in ("tbc", "to be confirmed", "confirm", "/", "?")):
+                flags.append("DG classification not final — confirm the UN number with the manufacturer before booking")
         bom_rows.append({"Item": r.get("Item"), "Qty": qty, "Type": typ, "Container": size, "Weight / Unit (t)": w,
                          "Checks": " · ".join(flags) if flags else "✅ Standard"})
     bom_bess_mwh = round(_bess_mwh_sum / _bess_units, 3) if _bess_units else 0.0
@@ -629,7 +639,11 @@ with tab_sail:
         _base = {"Offered By": "Forwarder 1", "Quote Ref": "", "POL": "Shanghai", "Currency": "USD", "DG Surcharge / Unit": 450.0, "Heavy-Lift / Unit": 1200.0,
                  "DG Yard Origin / Unit": 300.0, "Lashing / Unit": 250.0, "BAF / TEU (if not incl.)": 0.0,
                  "Origin Local / Unit": 350.0, "Dest. Local / Unit": 400.0, "Free Days": 5,
-                 "Valid Until": date(2027, 1, 15), "Transshipment Port": ""}
+                 "Valid Until": date(2027, 1, 15), "Transshipment Port": "",
+                 "Price Basis": "Per unit", "Lump Sum": None, "Lump Sum Units": None, "Terms": "Liner terms",
+                 "Loading Cost / Unit": None, "Discharge Cost / Unit": None, "DG Acceptance": "Confirmed",
+                 "Stowage": "TBC", "Hot Work / D-rings": "Not required", "War Risk & Other / Unit": 0.0,
+                 "Load Terminal": "", "Discharge Terminal": ""}
         st.session_state.sail_df = pd.DataFrame([
             dict(_base, **{"Option": "A1", "Carrier": "Sample Line A", "Vessel": "Sample Vessel 1", "Vessel Type": "Container vessel",
                            "POD": _haifa, "ETD": date(2026, 12, 26), "ETA": date(2027, 2, 8), "Direct": True,
@@ -647,7 +661,15 @@ with tab_sail:
                            "POD": _haifa, "ETD": date(2026, 12, 30), "ETA": date(2027, 2, 12), "Direct": True,
                            "Routing": "Cape of Good Hope", "Capacity (units)": 30, "Max Gross / Box (t)": 60.0,
                            "Freight / 20ft": 19000.0, "Freight / 40ft": 22000.0, "DG Surcharge / Unit": 0.0,
-                           "Heavy-Lift / Unit": 0.0, "Lashing / Unit": 600.0}),
+                           "Heavy-Lift / Unit": 0.0, "Lashing / Unit": 600.0, "Terms": "FIO", "Stowage": "Under deck",
+                           "Hot Work / D-rings": "By shipper", "DG Acceptance": "Pending"}),
+            dict(_base, **{"Offered By": "Forwarder 4", "Option": "F1", "Carrier": "Sample Charter Owner", "Vessel": "Sample Charter 1",
+                           "Vessel Type": "Charter (dedicated)", "POD": _haifa, "ETD": date(2026, 12, 28), "ETA": date(2027, 2, 9),
+                           "Direct": True, "Routing": "Cape of Good Hope", "Capacity (units)": 60, "Max Gross / Box (t)": 60.0,
+                           "Freight / 20ft": None, "Freight / 40ft": None, "Price Basis": "Lump sum", "Lump Sum": 980000.0,
+                           "Lump Sum Units": 54, "Terms": "FIO", "Loading Cost / Unit": 300.0, "Discharge Cost / Unit": 350.0,
+                           "DG Surcharge / Unit": 0.0, "Heavy-Lift / Unit": 0.0, "Lashing / Unit": 0.0, "Stowage": "Under deck",
+                           "Hot Work / D-rings": "Included", "War Risk & Other / Unit": 120.0}),
             dict(_base, **{"Option": "A2", "Carrier": "Sample Line A", "Vessel": "Sample Vessel 4", "Vessel Type": "Container vessel",
                            "POD": _haifa, "ETD": date(2027, 1, 2), "ETA": date(2027, 2, 15), "Direct": True,
                            "Routing": "Cape of Good Hope", "Capacity (units)": 25, "Max Gross / Box (t)": 45.0,
@@ -673,7 +695,9 @@ with tab_sail:
                       "Transshipment Port", "Routing", "Capacity (units)", "Max Gross / Box (t)", "Currency",
                       "Freight / 20ft", "Freight / 40ft", "BAF / TEU (if not incl.)", "DG Surcharge / Unit",
                       "Heavy-Lift / Unit", "DG Yard Origin / Unit", "Lashing / Unit", "Origin Local / Unit",
-                      "Dest. Local / Unit", "Free Days", "Valid Until"],
+                      "Dest. Local / Unit", "Price Basis", "Lump Sum", "Lump Sum Units", "Terms", "Loading Cost / Unit",
+                      "Discharge Cost / Unit", "War Risk & Other / Unit", "DG Acceptance", "Stowage", "Hot Work / D-rings",
+                      "Load Terminal", "Discharge Terminal", "Free Days", "Valid Until"],
         column_config={
             "Vessel Type": st.column_config.SelectboxColumn("Vessel Type", options=VESSEL_TYPES, required=True),
             "POD": st.column_config.SelectboxColumn("POD", options=SAIL_POD_OPTIONS, required=True),
@@ -688,6 +712,23 @@ with tab_sail:
             "Max Gross / Box (t)": st.column_config.NumberColumn("Max Gross / Box (t)", min_value=0.0, step=0.5,
                                                                  help="Heaviest container the carrier accepts on this sailing"),
             "Free Days": st.column_config.NumberColumn("Free Days", min_value=0, step=1),
+            "Price Basis": st.column_config.SelectboxColumn("Price Basis", options=["Per unit", "Lump sum"], required=True),
+            "Lump Sum": st.column_config.NumberColumn("Lump Sum", min_value=0.0, step=10000.0, format="%.0f",
+                                                      help="Total freight for the parcel / charter"),
+            "Lump Sum Units": st.column_config.NumberColumn("Lump Sum Units", min_value=0, step=1,
+                                                            help="Units covered by the lump sum"),
+            "Terms": st.column_config.SelectboxColumn("Terms", options=["Liner terms", "FIO", "FILO", "LIFO", "FIOS"], required=True,
+                                                      help="FIO = loading & discharge not included; FILO = loading not included; "
+                                                           "LIFO = discharge not included"),
+            "Loading Cost / Unit": st.column_config.NumberColumn("Loading Cost / Unit", min_value=0.0, step=50.0,
+                                                                 help="Stevedoring at the port of loading, if not included in the terms"),
+            "Discharge Cost / Unit": st.column_config.NumberColumn("Discharge Cost / Unit", min_value=0.0, step=50.0,
+                                                                   help="Stevedoring at the port of discharge, if not included in the terms"),
+            "War Risk & Other / Unit": st.column_config.NumberColumn("War Risk & Other / Unit", min_value=0.0, step=10.0),
+            "DG Acceptance": st.column_config.SelectboxColumn("DG Acceptance", options=["Confirmed", "Pending", "Refused", "Not stated"]),
+            "Stowage": st.column_config.SelectboxColumn("Stowage", options=["Under deck", "On deck", "Mixed", "TBC"]),
+            "Hot Work / D-rings": st.column_config.SelectboxColumn("Hot Work / D-rings",
+                                                                   options=["Included", "By shipper", "Not required", "TBC"]),
         },
     )
 
@@ -739,12 +780,38 @@ with tab_sail:
             return ("Heavy box" in bom_row["Checks"]) if bom_row else _any_heavy
         return True
 
+    TERM_COLS = {"loading": "Loading Cost / Unit", "discharge": "Discharge Cost / Unit"}
+    CHARGE_LABELS.update({"loading": "Loading (terms)", "discharge": "Discharge (terms)"})
+    _bom_units_total = sum(b["Qty"] for b in _bom_valid) or 1
+
+    def _term_applies(row, key):
+        t = str(row.get("Terms") or "Liner terms")
+        if key == "loading":
+            return t in ("FIO", "FILO", "FIOS")
+        return t in ("FIO", "LIFO", "FIOS")
+
+    _fill_terms = {}
+    for _, _r in sail_edit.iterrows():
+        for _k, _c in TERM_COLS.items():
+            _v = _stated(_r, _c)
+            if _v is not None:
+                _fill_terms[_k] = max(_fill_terms.get(_k, 0.0), _v * _fx_usd(_r))
+
+    def offer_freight(row, size):
+        """Freight per unit in the offer currency — per-unit rate, or lump sum spread over the units it covers."""
+        if row.get("Price Basis") == "Lump sum" and _num(row.get("Lump Sum")) > 0:
+            return _num(row.get("Lump Sum")) / max(1.0, _num(row.get("Lump Sum Units"), default=_bom_units_total))
+        return _num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))
+
     def offer_unit_cost_usd(row, bom_row, normalized=True):
         """Ocean + local cost for one unit of a BOM line (USD). normalized=True fills charges the offer does not state."""
         fx = _fx_usd(row)
         size = bom_row["Container"]
-        freight = _num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))
-        total = freight * fx
+        total = offer_freight(row, size) * fx + _num(row.get("War Risk & Other / Unit")) * fx
+        for k, col in TERM_COLS.items():
+            if _term_applies(row, k):
+                v = _stated(row, col)
+                total += v * fx if v is not None else (_fill_terms.get(k, 0.0) if normalized else 0.0)
         for k, col in CHARGE_COLS.items():
             if not _applies(k, bom_row):
                 continue
@@ -754,7 +821,9 @@ with tab_sail:
         return total
 
     def offer_missing(row):
-        return [CHARGE_LABELS[k] for k, col in CHARGE_COLS.items() if _applies(k) and _stated(row, col) is None]
+        miss = [CHARGE_LABELS[k] for k, col in CHARGE_COLS.items() if _applies(k) and _stated(row, col) is None]
+        miss += [CHARGE_LABELS[k] for k, col in TERM_COLS.items() if _term_applies(row, k) and _stated(row, col) is None]
+        return miss
 
     sail_results = []
     for _, row in sail_edit.iterrows():
@@ -805,8 +874,16 @@ with tab_sail:
                 costs[b["Type"]] = offer_unit_cost_usd(row, b, normalized=True)
                 quoted[b["Type"]] = offer_unit_cost_usd(row, b, normalized=False)
         missing = offer_missing(row)
-        if _num(row.get("Freight / 20ft")) <= 0 and _num(row.get("Freight / 40ft")) <= 0:
+        if offer_freight(row, "20ft") <= 0 and offer_freight(row, "40ft") <= 0:
             warns.append("Freight not stated")
+        _dga = str(row.get("DG Acceptance") or "Not stated")
+        if _dga == "Refused":
+            fails.append("DG cargo refused by the carrier")
+            status = "❌ Not eligible"
+        elif _dga in ("Pending", "Not stated", "nan") and _any_dg:
+            warns.append(f"DG acceptance {_dga.lower()}")
+            if status == "✅ Eligible":
+                status = "⚠️ Eligible — check"
             status = "❌ Not eligible" if fails else "⚠️ Eligible — check"
         sail_results.append({
             "Option": opt, "Carrier": row.get("Carrier"), "Vessel": row.get("Vessel"), "Type": vtype,
@@ -818,6 +895,9 @@ with tab_sail:
             "offered_by": str(row.get("Offered By") or "").replace("nan", ""),
             "quote_ref": str(row.get("Quote Ref") or "").replace("nan", ""),
             "valid_until": valid, "routing": row.get("Routing"), "direct": bool(row.get("Direct")),
+            "terms": str(row.get("Terms") or "Liner terms"), "stowage": str(row.get("Stowage") or "TBC"),
+            "dg_acceptance": _dga, "hot_work": str(row.get("Hot Work / D-rings") or "TBC"),
+            "price_basis": str(row.get("Price Basis") or "Per unit"),
             "free_days": int(_num(row.get("Free Days"))), "eligible": not fails,
         })
 
@@ -916,7 +996,9 @@ with tab_sail:
                  help="Fills the table with a first split on eligible sailings, cheapest first, within the insurer limit "
                       "and the capacity offered. Edit it freely — it is only a starting point."):
         _rows, _remaining = [], dict(bom_totals)
-        _elig = sorted([r for r in sail_results if r["eligible"]], key=lambda r: r["cost_usd"].get("BESS", 0))
+        # lump-sum (charter) offers are left out of the draft — a charter is a decision for the whole parcel
+        _elig = sorted([r for r in sail_results if r["eligible"] and r["price_basis"] != "Lump sum"],
+                       key=lambda r: r["cost_usd"].get("BESS", 0))
         for r in _elig:
             room = r["Capacity"] or 0
             for t in sorted(_remaining, key=lambda x: x != "BESS"):
@@ -948,6 +1030,7 @@ with tab_sail:
         },
     )
 
+    _rows_by_opt_plan = {str(x.get("Option")): x for _, x in sail_edit.iterrows()}
     # ---- effective quantities
     plan_lines = []
     for _, r in plan_edit.iterrows():
@@ -997,7 +1080,15 @@ with tab_sail:
             req_tot = sum(l["Requested"] for l in ls)
             pdays = max(l["Port Days"] for l in ls)
             cost = sum(l["Effective"] * s_["cost_usd"].get(l["Equipment"], 0) for l in ls)
-            notes = []
+            _srow = _rows_by_opt_plan.get(opt)
+            _ls_flag = False
+            if s_["price_basis"] == "Lump sum" and _srow is not None and tot > 0:
+                # the lump sum is due in full whatever the quantity loaded
+                _ls_usd = _num(_srow.get("Lump Sum")) * _fx_usd(_srow)
+                _per_unit_ls = offer_freight(_srow, "20ft") * _fx_usd(_srow)
+                cost = cost - tot * _per_unit_ls + _ls_usd
+                _ls_flag = True
+            notes = ["ℹ️ lump sum in full"] if _ls_flag else []
             if not s_["eligible"]:
                 problems.append(f"{opt}: sailing does not meet the Project Brief ({s_['Issues']})")
                 notes.append("❌ not eligible")
@@ -1231,18 +1322,19 @@ with tab2:
     unit_freight_solar = f_solar / usd_to_eur if is_eur_display else f_solar
 
     st.markdown("#### 2. Container Size per Equipment Type")
+    _BOX_SIZES = [x for x in CONTAINER_SIZES if x != "MPP / Breakbulk"]
     st.caption("Carriers publish BAF / EFS per TEU: 20ft = 1 TEU, 40ft / 40ft HC = 2 TEU. "
                "A 10ft SOC normally takes a 20ft slot and is billed as 1 TEU (adjustable below).")
     cs1, cs2, cs3, cs4 = st.columns(4)
     with cs1:
-        size_bess = ui.selectbox("BESS container size:", CONTAINER_SIZES[:4], index=1)
-        size_oog = ui.selectbox("OOG unit size:", CONTAINER_SIZES[:4], index=2)
+        size_bess = ui.selectbox("BESS container size:", _BOX_SIZES, index=_BOX_SIZES.index("20ft"))
+        size_oog = ui.selectbox("OOG unit size:", _BOX_SIZES, index=_BOX_SIZES.index("40ft"))
     with cs2:
-        size_mvs = ui.selectbox("MVS container size:", CONTAINER_SIZES[:4], index=1)
-        size_trans = ui.selectbox("Transformer size:", CONTAINER_SIZES[:4], index=1)
+        size_mvs = ui.selectbox("MVS container size:", _BOX_SIZES, index=_BOX_SIZES.index("20ft"))
+        size_trans = ui.selectbox("Transformer size:", _BOX_SIZES, index=_BOX_SIZES.index("20ft"))
     with cs3:
-        size_access = ui.selectbox("Accessory container size:", CONTAINER_SIZES[:4], index=3)
-        size_solar = ui.selectbox("Solar PV container size:", CONTAINER_SIZES[:4], index=3)
+        size_access = ui.selectbox("Accessory container size:", _BOX_SIZES, index=_BOX_SIZES.index("40ft HC"))
+        size_solar = ui.selectbox("Solar PV container size:", _BOX_SIZES, index=_BOX_SIZES.index("40ft HC"))
     with cs4:
         ten_ft_teu = ui.number_input("10ft container billed as (TEU):", min_value=0.5, max_value=1.0, value=1.0, step=0.5)
 
@@ -1976,25 +2068,20 @@ with tab8:
                                  "POD": sr.get("POD"),
                                  "ETD": date.fromisoformat(sr["ETD"]) if sr.get("ETD") else None,
                                  "ETA": date.fromisoformat(sr["ETA"]) if sr.get("ETA") else None,
-                                 "Currency": cur, "Origin Charges / Unit": float(sr.get("Origin Local / Unit") or 0),
+                                 "Currency": "USD", "Origin Charges / Unit": round(float(sr.get("Origin Local / Unit") or 0)
+                                     * (1 / usd_to_eur if str(cur).upper().startswith("EUR") else 1), 2),
                                  "Port Days": int(l["Port Days"]), "Free Days": int(sr.get("Free Days") or 0),
                                  "Daily Rate / Unit after Free Days": 100.0, "Extra Lump Sum": 0.0})
             size = _bom_size.get(l["Equipment"], "20ft")
-            heavy = any(b["Type"] == l["Equipment"] and "Heavy box" in b["Checks"] for b in bom_rows)
-            dg = any(b["Type"] == l["Equipment"] and "Dangerous goods" in b["Checks"] for b in bom_rows)
-            freight = float(sr.get("Freight / 40ft") or 0) if size in ("40ft", "40ft HC") else float(sr.get("Freight / 20ft") or 0)
-            freight += float(sr.get("Lashing / Unit") or 0)
-            if dg:
-                freight += float(sr.get("DG Surcharge / Unit") or 0) + float(sr.get("DG Yard Origin / Unit") or 0)
-            if heavy:
-                freight += float(sr.get("Heavy-Lift / Unit") or 0)
-            _fx = usd_to_eur if str(cur).upper().startswith("EUR") else 1.0
+            _sres = _sail_by_opt.get(l["Option"], {})
+            _all_in = _sres.get("cost_usd", {}).get(l["Equipment"], 0.0)
+            _o_loc = float(sr.get("Origin Local / Unit") or 0) * (1 / usd_to_eur if str(cur).upper().startswith("EUR") else 1)
+            _d_loc = float(sr.get("Dest. Local / Unit") or 0) * (1 / usd_to_eur if str(cur).upper().startswith("EUR") else 1)
             _ln_rows.append({"Shipment": name, "Equipment": l["Equipment"], "Qty": int(l["Effective"]),
-                             "Container Size": "MPP / Breakbulk" if service == "MPP Vessel" else size, "Currency": cur,
-                             "Freight / Unit": freight, "BAF / TEU": float(sr.get("BAF / TEU (if not incl.)") or 0),
-                             "Apply EFS": False, "EFS / TEU": 0.0,
-                             "Dest. THC / Unit": float(sr.get("Dest. Local / Unit") or 0),
-                             "Trucking / Unit": round(_dray_usd.get(l["Equipment"], 0.0) * _fx, 2)})
+                             "Container Size": "MPP / Breakbulk" if service == "MPP Vessel" else size, "Currency": "USD",
+                             "Freight / Unit": round(max(0.0, _all_in - _o_loc - _d_loc), 2), "BAF / TEU": 0.0,
+                             "Apply EFS": False, "EFS / TEU": 0.0, "Dest. THC / Unit": round(_d_loc, 2),
+                             "Trucking / Unit": round(_dray_usd.get(l["Equipment"], 0.0), 2)})
         if _sh_rows:
             st.session_state.msp_shipments = pd.DataFrame(_sh_rows)
             st.session_state.msp_lines = pd.DataFrame(_ln_rows)
@@ -2309,6 +2396,14 @@ with tab_quote:
             risks.append(f"Only {r['free_days']} free days")
         if r["valid_until"] and r["ETD"] and r["valid_until"] < r["ETD"]:
             risks.append("Validity ends before ETD")
+        if _any_dg and r["dg_acceptance"] != "Confirmed":
+            risks.append(f"DG acceptance {r['dg_acceptance'].lower()}")
+        if r["stowage"] in ("On deck", "Mixed"):
+            risks.append(f"{r['stowage']} stowage — check with insurer & manufacturer")
+        if r["hot_work"] in ("By shipper", "TBC"):
+            risks.append(f"D-ring hot work {'by shipper' if r['hot_work'] == 'By shipper' else 'TBC'}")
+        if r["terms"] != "Liner terms":
+            risks.append(f"{r['terms']} terms — stevedoring {'not included' if r['terms'] in ('FIO', 'FIOS') else 'partly excluded'}")
         cmp.append({"r": r, "full_norm": full_norm, "full_quoted": full_quoted, "risks": risks})
 
     if not cmp:
@@ -2336,7 +2431,7 @@ with tab_quote:
             st.error("No offer meets the Project Brief yet.")
 
         headers = ["Rank", "Offered by", "Quote ref", "Carrier", "Vessel", "Type", "POD", "ETD", "ETA", "Transit",
-                   "Free days", "Valid until", "Compliance", f"Per BESS unit ({_cmp_cur})",
+                   "Free days", "Valid until", "Terms", "Stowage", "DG accept.", "Compliance", f"Per BESS unit ({_cmp_cur})",
                    f"Full BOM — quoted ({_cmp_cur})", f"Full BOM — like-for-like ({_cmp_cur})",
                    f"Per kWh ({_cmp_cur})", "vs cheapest", "Risk flags"]
         rows_out, fills, rank = [], [], 0
@@ -2352,6 +2447,8 @@ with tab_quote:
                 "ETD": r["ETD"].strftime("%d/%m/%Y") if r["ETD"] else "", "ETA": r["ETA"].strftime("%d/%m/%Y") if r["ETA"] else "",
                 "Transit": r["Transit (d)"], "Free days": r["free_days"],
                 "Valid until": r["valid_until"].strftime("%d/%m/%Y") if r["valid_until"] else "",
+                "Terms": r["terms"] + (" · lump sum" if r["price_basis"] == "Lump sum" else ""),
+                "Stowage": r["stowage"], "DG accept.": r["dg_acceptance"],
                 "Compliance": r["Status"] + ("" if r["eligible"] else f" — {r['Issues']}"),
                 f"Per BESS unit ({_cmp_cur})": round(r["cost_usd"].get("BESS", 0) * _cm),
                 f"Full BOM — quoted ({_cmp_cur})": round(c["full_quoted"] * _cm),
@@ -2372,7 +2469,8 @@ with tab_quote:
         _rows_by_opt = {str(x.get("Option")): x for _, x in sail_edit.iterrows()}
         if _bt:
             _bom_line = next(b for b in _bom_valid if b["Type"] == _bt)
-            lines = [("Freight", None)] + [(CHARGE_LABELS[k], k) for k in CHARGE_COLS if _applies(k, _bom_line)]
+            lines = ([("Freight", None)] + [(CHARGE_LABELS[k], k) for k in CHARGE_COLS if _applies(k, _bom_line)]
+                     + [(CHARGE_LABELS[k], k) for k in TERM_COLS] + [("War risk & other", "other")])
             b_headers = [f"Charge per {_bt} unit"] + [c["r"]["Option"] for c in cmp]
             for label, key in lines:
                 rr = {f"Charge per {_bt} unit": label}
@@ -2381,8 +2479,17 @@ with tab_quote:
                     fx = _fx_usd(row) * _cm
                     size = _bom_line["Container"]
                     if key is None:
-                        v = _num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))
-                        rr[c["r"]["Option"]] = f"{v * fx:,.0f}"
+                        v = offer_freight(row, size)
+                        rr[c["r"]["Option"]] = f"{v * fx:,.0f}" + (" (lump sum)" if row.get("Price Basis") == "Lump sum" else "")
+                    elif key == "other":
+                        rr[c["r"]["Option"]] = f"{_num(row.get('War Risk & Other / Unit')) * fx:,.0f}"
+                    elif key in TERM_COLS:
+                        if not _term_applies(row, key):
+                            rr[c["r"]["Option"]] = "in terms"
+                        else:
+                            v = _stated(row, TERM_COLS[key])
+                            rr[c["r"]["Option"]] = (f"{v * fx:,.0f}" if v is not None
+                                                   else f"not stated → {_fill_terms.get(key, 0.0) * _cm:,.0f}")
                     else:
                         v = _stated(row, CHARGE_COLS[key])
                         mult = teu_factor(size, 1.0) if key == "baf" else 1.0
@@ -2408,6 +2515,8 @@ with tab_quote:
             "Full BOM = all units of the BOM priced at each offer's per-unit rates (common yardstick).",
             "Like-for-like = charges not stated in an offer are filled with the highest value stated in the other offers "
             "for the same vessel type (container vs MPP / charter). 0 in an offer = included in the freight.",
+            "Lump-sum offers are spread over the units they cover. Under FIO / FILO / LIFO terms the excluded loading and / "
+            "or discharge (stevedoring) cost is added — stated, or filled from the other offers and flagged.",
             "DG surcharge and DG yard apply to dangerous-goods units only; heavy-lift applies to boxes above 30.48 t gross.",
             "Ocean and local charges only — inland transport, duties, VAT and permits are not part of this comparison.",
         ]

@@ -296,8 +296,8 @@ SERVICE_TYPES = ["Container Line - SOC", "Container Line - COC", "MPP Vessel"]
 
 # Container sizes and how many TEU a carrier bills for each (BAF / EFS are published per TEU).
 # A 10' box normally takes a 20' slot on a container vessel, so it is billed as 1 TEU by default.
-CONTAINER_SIZES = ["10ft", "20ft", "40ft", "40ft HC", "MPP / Breakbulk"]
-DEFAULT_TEU_FACTORS = {"10ft": 1.0, "20ft": 1.0, "40ft": 2.0, "40ft HC": 2.0, "MPP / Breakbulk": 1.0}
+CONTAINER_SIZES = ["10ft", "20ft", "20ft HC", "40ft", "40ft HC", "MPP / Breakbulk"]
+DEFAULT_TEU_FACTORS = {"10ft": 1.0, "20ft": 1.0, "20ft HC": 1.0, "40ft": 2.0, "40ft HC": 2.0, "MPP / Breakbulk": 1.0}
 
 
 def teu_factor(size, ten_ft_factor=1.0):
