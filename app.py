@@ -7,6 +7,8 @@ import importlib
 from datetime import date, timedelta
 import calc as _calc_module
 importlib.reload(_calc_module)  # always load the latest calc.py after an update (no app reboot needed)
+import quote_export as _quote_mod
+importlib.reload(_quote_mod)
 from calc import get_live_exchange_rate, convert_currency, format_currency, calculate_project_costs
 from calc import calculate_shipment_plan, EQUIPMENT_TYPES, SERVICE_TYPES, CONTAINER_SIZES, teu_factor
 
@@ -458,9 +460,10 @@ with col_logo:
 
 st.markdown("---")
 
-tab0, tab_sail, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab0, tab_sail, tab_quote, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📝 Project Brief & BOM",
     "⛴️ Sailing Options",
+    "📄 Client Quote",
     "📋 Equipment Mix & Quantities",
     "🚢 Supply Chain & Incoterms",
     "📦 Storage, Demurrage & Drayage",
@@ -2218,6 +2221,152 @@ with tab8:
 # ---------------------------------------------------------------------------
 # PROJECT FILE — save / load (sidebar)
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# CLIENT QUOTE (sell prices) — built from the Sailing Options and the plan
+# ---------------------------------------------------------------------------
+with tab_quote:
+    st.subheader("📄 Client Quote — Ocean Freight per Vessel & Port of Discharge")
+    st.markdown("Builds a client-ready Excel quote from the sailing options. Only **sell prices** (cost + markup) are "
+                "exported — your costs and margin stay in the app.")
+
+    _plan_opts = [l["Option"] for l in plan_lines if l["Effective"] > 0] if plan_lines else []
+    _all_opts = [r["Option"] for r in sail_results]
+    _default_opts = list(dict.fromkeys(_plan_opts)) or [r["Option"] for r in sail_results if r["eligible"]]
+
+    q1, q2, q3 = st.columns(3)
+    with q1:
+        quote_client = ui.text_input("Client name (optional):", value="")
+        quote_currency = ui.selectbox("Quote currency:", ["USD", "EUR"], index=0)
+    with q2:
+        quote_markup_pct = ui.number_input("Markup on all charges (%):", min_value=0.0, value=8.0, step=0.5)
+        quote_markup_unit = ui.number_input("Fixed handling fee per unit:", min_value=0.0, value=150.0, step=50.0,
+                                            help="In the quote currency, added to the ocean freight line")
+    with q3:
+        quote_options = ui.multiselect("Sailing options to quote:", options=_all_opts, default=_default_opts,
+                                       help="Default: vessels in the allocation plan, otherwise all eligible sailings")
+        _valids = [_d(r.get("Valid Until")) for _, r in sail_edit.iterrows()
+                   if str(r.get("Option")) in quote_options and _d(r.get("Valid Until"))]
+        quote_valid_until = ui.date_input("Quote valid until:", value=min(_valids) if _valids else date.today() + timedelta(days=14))
+    _pol_default = next((str(r.get("POL")) for _, r in sail_edit.iterrows() if str(r.get("Option")) in quote_options), "Shanghai")
+    quote_basis = ui.text_input("Basis:", value=f"FOB {_pol_default} — port-to-port ocean freight incl. local charges "
+                                                "at origin and destination")
+
+    def _itemized_sell(row, bom_row):
+        """Per-unit charges for one BOM line on one sailing, converted to the quote currency, markup applied."""
+        src_usd = (1.0 / usd_to_eur) if str(row.get("Currency")).upper().startswith("EUR") else 1.0
+        to_q = usd_to_eur if quote_currency == "EUR" else 1.0
+        k = src_usd * to_q * (1 + quote_markup_pct / 100.0)
+        size = bom_row["Container"]
+        ch = {
+            "freight": (_num(row.get("Freight / 40ft")) if size in ("40ft", "40ft HC") else _num(row.get("Freight / 20ft"))) * k
+                       + quote_markup_unit,
+            "baf": _num(row.get("BAF / TEU (if not incl.)")) * teu_factor(size, 1.0) * k,
+            "dg": _num(row.get("DG Surcharge / Unit")) * k if "Dangerous goods" in bom_row["Checks"] else 0.0,
+            "heavy": _num(row.get("Heavy-Lift / Unit")) * k if "Heavy box" in bom_row["Checks"] else 0.0,
+            "dg_yard": _num(row.get("DG Yard Origin / Unit")) * k if "Dangerous goods" in bom_row["Checks"] else 0.0,
+            "lashing": _num(row.get("Lashing / Unit")) * k,
+            "origin": _num(row.get("Origin Local / Unit")) * k,
+            "dest": _num(row.get("Dest. Local / Unit")) * k,
+        }
+        return {key: round(v, 2) for key, v in ch.items()}
+
+    _eff_qty = {}
+    for l in (plan_lines or []):
+        _eff_qty[(l["Option"], l["Equipment"])] = _eff_qty.get((l["Option"], l["Equipment"]), 0) + l["Effective"]
+    _rows_by_opt = {str(r.get("Option")): r for _, r in sail_edit.iterrows()}
+    _bom_first = {}
+    for b in bom_rows:
+        _bom_first.setdefault(b["Type"], b)
+
+    quote_opts, preview, cost_total, sell_total = [], [], 0.0, 0.0
+    for opt in quote_options:
+        row = _rows_by_opt.get(opt)
+        sres = _sail_by_opt.get(opt)
+        if row is None or sres is None:
+            continue
+        units = []
+        for t, b in _bom_first.items():
+            ch = _itemized_sell(row, b)
+            qty = _eff_qty.get((opt, t)) if _eff_qty else None
+            units.append({"type": t, "qty": qty, "charges": ch})
+            unit_sell = sum(ch.values())
+            unit_cost = sres["cost_usd"].get(t, 0) * (usd_to_eur if quote_currency == "EUR" else 1.0)
+            if qty:
+                cost_total += qty * unit_cost
+                sell_total += qty * unit_sell
+            preview.append({"Option": opt, "Vessel": sres["Vessel"], "POD": sres["POD"].split(",")[0], "Equipment": t,
+                            "Sell / unit": f"{quote_currency} {unit_sell:,.0f}", "Qty": qty or "—",
+                            "Sell total": f"{quote_currency} {(qty or 0) * unit_sell:,.0f}" if qty else "rates only",
+                            "Status": sres["Status"]})
+        quote_opts.append({
+            "option": opt, "carrier": sres["Carrier"], "vessel": sres["Vessel"], "vessel_type": sres["Type"],
+            "pol": str(row.get("POL") or ""), "pod": sres["POD"], "etd": sres["ETD"], "eta": sres["ETA"],
+            "transit_days": sres["Transit (d)"], "routing": str(row.get("Routing") or ""),
+            "direct": bool(row.get("Direct")), "transshipment": str(row.get("Transshipment Port") or "").replace("nan", ""),
+            "free_days": sres["free_days"], "valid_until": _d(row.get("Valid Until")), "units": units,
+        })
+
+    if not quote_opts:
+        st.info("Select at least one sailing option to build a quote.")
+    else:
+        if any(not _sail_by_opt[o["option"]]["eligible"] for o in quote_opts):
+            st.warning("Some selected options do NOT meet the Project Brief (see Sailing Options). "
+                       "They will be quoted with their real routing — check before sending.")
+        st.dataframe(pd.DataFrame(preview), use_container_width=True, hide_index=True)
+        if sell_total:
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Quote total (allocated units)", f"{quote_currency} {sell_total:,.0f}")
+            m2.metric("Your cost", f"{quote_currency} {cost_total:,.0f}", help="Internal — not exported")
+            m3.metric("Margin", f"{quote_currency} {sell_total - cost_total:,.0f}",
+                      f"{(sell_total - cost_total) / sell_total * 100:.1f}%" if sell_total else None)
+
+        notes = []
+        if all(o["direct"] for o in quote_opts):
+            notes.append("Direct sailing on every quoted vessel — no transshipment, no discharge or reloading onto "
+                         "another vessel at any stage.")
+        else:
+            notes.append("Routing per option as stated on each option sheet (direct / transshipment).")
+        if all(o["routing"] == "Cape of Good Hope" for o in quote_opts):
+            notes.append("Routing via the Cape of Good Hope — no Red Sea, Bab el-Mandeb or Suez Canal transit.")
+        if insurance_by_client:
+            notes.append("Marine insurance is arranged by the client under its own policy and is not included.")
+        if max_bess_per_vessel:
+            notes.append(f"Split between vessels follows the client's insurer limit of {max_bess_per_vessel} BESS units per voyage.")
+        for p_, g_ in port_group_of.items():
+            if g_ in group_cap and any(o["pod"] == p_ for o in quote_opts):
+                notes.append(f"{p_.split(',')[0]}: port rule of max {group_cap[g_]} BESS in port at once"
+                             + (" (recently introduced, subject to change)" if group_temp.get(g_) else "")
+                             + " — prompt pick-up after discharge must be arranged.")
+        if special_handling:
+            notes.append("Handling per the manufacturer's instructions: " + special_handling.strip())
+        notes.append("Rates per unit, subject to carrier space and dangerous-goods / heavy-weight acceptance at booking.")
+        _excl = "inland transport, customs clearance, duties and taxes, storage or demurrage beyond the free time"
+        if is_israel:
+            _excl += ", Ministry of Transport transport permits and Toxins Permits"
+        notes.append(f"Not included: {_excl}.")
+        notes.append(f"Quote valid until {quote_valid_until.strftime('%d/%m/%Y')}.")
+
+        _cargo = []
+        for _, b in bom_edit.iterrows():
+            q_ = int(_num(b.get("Qty")))
+            if q_ > 0:
+                _cargo.append({"item": b.get("Item"), "model": b.get("Model"), "qty": q_, "container":
+                               f'{b.get("Container")}{" SOC" if bool(b.get("SOC")) else ""}',
+                               "weight_t": _num(b.get("Gross Weight (t)")),
+                               "dg": str(b.get("DG Class") or "").replace("nan", "")})
+        meta = {"project": project_name, "client": quote_client,
+                "quote_ref": f"TV-{date.today().strftime('%Y%m%d')}-{_re.sub(r'[^A-Za-z0-9]+', '', project_name)[:12].upper()}",
+                "quote_date": date.today(), "valid_until": quote_valid_until, "currency": quote_currency,
+                "incoterm_basis": quote_basis, "cargo_lines": _cargo, "special_handling": special_handling,
+                "notes": notes}
+        st.markdown("**Confirmations & terms in the quote:**")
+        st.markdown("\n".join(f"- {n}" for n in notes))
+        _xlsx = _quote_mod.build_quote_xlsx(meta, quote_opts, logo_path=logo_path if os.path.exists(logo_path) else None)
+        st.download_button("⬇️ Download client quote (Excel)", data=_xlsx,
+                           file_name=f"{meta['quote_ref']}.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 💾 Save / Load Project")
 _project_file = {
